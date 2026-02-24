@@ -1,0 +1,65 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.log
+
+# ─── C++ / Build Artifacts ────────────────────────────────────────────────────
+cpp/build/
+*.so
+*.o
+*.a
+*.dylib
+*.dll
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# ─── Node / Next.js ───────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.npm
+*.tsbuildinfo
+frontend/.env.local
+frontend/.env.production
+
+# ─── Environment & Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+secrets/
+
+# ─── Databases & Data ─────────────────────────────────────────────────────────
+*.db
+*.sqlite3
+*.dump
+data/raw/
+data/processed/
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ─── OS & Editors ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

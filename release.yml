@@ -1,0 +1,31 @@
+name: 📦 Release & Changelog
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          release-type: python
+          # Reads conventional commits and auto-generates CHANGELOG.md
+          # feat: → minor bump  |  fix: → patch bump  |  feat!: → major bump
+          changelog-types: |
+            [
+              {"type": "feat",     "section": "✨ Features"},
+              {"type": "fix",      "section": "🐛 Bug Fixes"},
+              {"type": "perf",     "section": "⚡ Performance"},
+              {"type": "refactor", "section": "♻️ Refactoring"},
+              {"type": "docs",     "section": "📚 Documentation"},
+              {"type": "chore",    "section": "🔧 Maintenance"},
+              {"type": "cpp",      "section": "⚙️ C++ Engine"}
+            ]

@@ -1,0 +1,67 @@
+name: ✨ Feature Request
+description: Propose a new feature or improvement
+labels: ["enhancement"]
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🎯 Problem / Motivation
+      description: What user problem does this solve? Why does it matter?
+      placeholder: "Users can't compare two cities side by side, so they have to manually open two tabs..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe your idea clearly.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 🗂️ Feature Area
+      options:
+        - Search & Filtering
+        - Map & Geo
+        - Analytics & Scoring
+        - Currency & Pricing
+        - C++ Performance Layer
+        - User Accounts / Auth
+        - Data Ingestion / Scrapers
+        - Frontend UI/UX
+        - API / Developer Platform
+        - Infrastructure / DevOps
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 📊 Business Impact
+      options:
+        - 🔥 Critical — Core to product
+        - 🚀 High — Significant user value
+        - 📈 Medium — Nice to have
+        - 💭 Low — Future consideration
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives Considered
+      description: What other approaches did you think of?
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: ✅ Acceptance Criteria
+      description: How do we know this feature is done? Use checkboxes.
+      placeholder: |
+        - [ ] User can select two cities in the search bar
+        - [ ] Side-by-side price/sqm comparison card renders
+        - [ ] Works on mobile viewport

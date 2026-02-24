@@ -1,0 +1,80 @@
+name: 🐛 Bug Report
+description: Something is broken or behaving unexpectedly
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 📝 Bug Summary
+      description: A clear, one-sentence description of the bug.
+      placeholder: "The search returns no results when filtering by radius in Europe"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 🔁 Steps to Reproduce
+      description: Exact steps to trigger the bug.
+      placeholder: |
+        1. Go to the search page
+        2. Set country to 'DE', city to 'Berlin'
+        3. Set radius to 5km
+        4. Click Search
+        5. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ Expected Behavior
+      placeholder: "Should return listings within 5km of Berlin center"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: ❌ Actual Behavior
+      placeholder: "Returns 0 results and a 500 error in the console"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: 🧩 Affected Service
+      options:
+        - Search Service (FastAPI)
+        - Analytics Service
+        - C++ Engine
+        - Currency Service
+        - Frontend (Next.js)
+        - Database / PostGIS
+        - CI / CD
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📋 Relevant Logs / Stack Trace
+      description: Paste any error logs here.
+      render: shell
+
+  - type: input
+    id: environment
+    attributes:
+      label: 🌍 Environment
+      placeholder: "e.g. Production / Local Docker / macOS M2 / Python 3.12"
+    validations:
+      required: true

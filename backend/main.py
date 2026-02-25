@@ -61,6 +61,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ─── Routers ──────────────────────────────────────────────────────────────────
+from backend.routers.search import router as search_router
+app.include_router(search_router)
+
 # ─── Health Check ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health_check():

@@ -1,7 +1,7 @@
-# commitlint.config.js
-# Enforces Conventional Commits on every commit message.
-# Install: npm install --save-dev @commitlint/config-conventional @commitlint/cli husky
-# Setup:   npx husky init && echo "npx commitlint --edit \$1" > .husky/commit-msg
+// commitlint.config.js
+// Enforces Conventional Commits on every commit message.
+// Install: npm install --save-dev @commitlint/config-conventional @commitlint/cli husky
+// Setup:   npx husky init && echo "npx commitlint --edit \$1" > .husky/commit-msg
 
 module.exports = {
   extends: ['@commitlint/config-conventional'],

@@ -79,6 +79,19 @@ services:
       - api
       - frontend
 
+  scraper:
+    build:
+      context: .
+      dockerfile: docker/scraper.Dockerfile
+    container_name: velocite_scraper
+    environment:
+      DATABASE_URL: postgresql://velocite:velocite123@postgres:5432/velocite
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: python -m scrapers.scheduler
+
 volumes:
   postgres_data:
   redis_data:

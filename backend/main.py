@@ -32,6 +32,9 @@ async def lifespan(app: FastAPI):
         decode_responses=True
     )
 
+    app.state.db_pool = db_pool
+    app.state.redis_client = redis_client
+
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} started")
     print(f"✅ Database connected")
     print(f"✅ Redis connected")

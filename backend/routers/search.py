@@ -1,30 +1,24 @@
 # backend/routers/search.py
-# Search endpoint — the main API route for VeloCite
-
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from typing import Optional
 
-from backend.main import db_pool, redis_client
 from backend.models.listing import SearchParams, SearchResponse
 from backend.services.search import SearchService
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 
 
-def get_search_service() -> SearchService:
-    return SearchService(db_pool, redis_client)
+def get_search_service(request: Request) -> SearchService:
+    return SearchService(request.app.state.db_pool, request.app.state.redis_client)
 
 
 @router.get("/search", response_model=SearchResponse)
 async def search_listings(
-    # Location
     country_code: Optional[str] = Query(None, max_length=2),
     city: Optional[str] = Query(None),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
     radius_km: Optional[float] = Query(None, ge=0.1, le=500),
-
-    # Property
     property_type: Optional[str] = Query(None),
     listing_type: str = Query("sale"),
     min_price: Optional[float] = Query(None, ge=0),
@@ -32,36 +26,22 @@ async def search_listings(
     min_area: Optional[float] = Query(None, ge=0),
     max_area: Optional[float] = Query(None),
     bedrooms: Optional[int] = Query(None, ge=0, le=20),
-
-    # Display
     currency: str = Query("USD", max_length=3),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-
     service: SearchService = Depends(get_search_service),
 ):
     params = SearchParams(
-        country_code=country_code,
-        city=city,
-        lat=lat,
-        lng=lng,
-        radius_km=radius_km,
-        property_type=property_type,
-        listing_type=listing_type,
-        min_price=min_price,
-        max_price=max_price,
-        min_area=min_area,
-        max_area=max_area,
-        bedrooms=bedrooms,
-        currency=currency,
-        page=page,
-        page_size=page_size,
+        country_code=country_code, city=city, lat=lat, lng=lng,
+        radius_km=radius_km, property_type=property_type,
+        listing_type=listing_type, min_price=min_price, max_price=max_price,
+        min_area=min_area, max_area=max_area, bedrooms=bedrooms,
+        currency=currency, page=page, page_size=page_size,
     )
     return await service.search(params)
 
 
 @router.get("/currencies")
 async def get_supported_currencies():
-    """Returns all supported currencies with their symbols."""
     from backend.services.currency import CurrencyService
     return CurrencyService.SUPPORTED_CURRENCIES

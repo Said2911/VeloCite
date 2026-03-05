@@ -136,9 +136,9 @@ class SearchService:
         symbol = self.fx.get_symbol(params.currency)
 
         for listing in listings:
-            listing['price_display'] = round(listing['price_usd'] * rate, 2)
+            listing['price_display'] = round(float(listing['price_usd']) * rate, 2)
             listing['price_per_sqm_display'] = round(
-                (listing.get('price_per_sqm') or 0) * rate, 2
+                float(listing.get('price_per_sqm') or 0) * rate, 2
             )
             listing['currency'] = params.currency
             listing['currency_symbol'] = symbol

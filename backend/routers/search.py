@@ -45,3 +45,11 @@ async def search_listings(
 async def get_supported_currencies():
     from backend.services.currency import CurrencyService
     return CurrencyService.SUPPORTED_CURRENCIES
+
+@router.post("/seed")
+async def seed_data(request: Request):
+    import sys
+    sys.path.insert(0, '/app')
+    from scrapers.data_generator import generate_and_insert
+    await generate_and_insert(80)
+    return {"status": "done"}

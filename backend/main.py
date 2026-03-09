@@ -35,6 +35,13 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = db_pool
     app.state.redis_client = redis_client
 
+    from alembic.config import Config
+    from alembic import command
+    import os
+    alembic_cfg = Config("/app/alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+    print("✅ Migrations applied")
+
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} started")
     print(f"✅ Database connected")
     print(f"✅ Redis connected")
@@ -58,7 +65,7 @@ app = FastAPI(
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js frontend
+    allow_origins=["*"],  # Next.js frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

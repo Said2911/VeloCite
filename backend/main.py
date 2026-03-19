@@ -35,16 +35,16 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = db_pool
     app.state.redis_client = redis_client
 
-    from alembic.config import Config
-    from alembic import command
-    import os
-
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    ini_path = os.path.join(base_dir, "alembic.ini")
-
-    alembic_cfg = Config(ini_path)
-    alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "migrations"))
-    command.upgrade(alembic_cfg, "head")
+    # Run migrations via SQL
+    import glob
+    migration_files = sorted(glob.glob("/app/database/migrations/*.sql"))
+    async with db_pool.acquire() as conn:
+        for f in migration_files:
+            sql = open(f).read()
+            try:
+                await conn.execute(sql)
+            except Exception as e:
+                print(f"Migration {f}: {e}")
     
     print("✅ Migrations applied")
 

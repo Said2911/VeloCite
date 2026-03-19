@@ -38,8 +38,14 @@ async def lifespan(app: FastAPI):
     from alembic.config import Config
     from alembic import command
     import os
-    alembic_cfg = Config("/app/alembic.ini")
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ini_path = os.path.join(base_dir, "alembic.ini")
+
+    alembic_cfg = Config(ini_path)
+    alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "migrations"))
     command.upgrade(alembic_cfg, "head")
+    
     print("✅ Migrations applied")
 
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} started")

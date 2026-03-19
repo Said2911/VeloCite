@@ -1,6 +1,7 @@
 # Build stage — compile C++ engine
 FROM python:3.12-slim AS builder
 
+
 RUN apt-get update && apt-get install -y \
     cmake g++ python3-dev pybind11-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -29,5 +30,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY analytics/ ./analytics/
 COPY scrapers/ ./scrapers/
+COPY database/ ./database/
 
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001"]

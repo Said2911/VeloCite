@@ -82,9 +82,13 @@ app.add_middleware(
 )
 
 from backend.routers.admin import router as admin_router  # noqa: E402
+from backend.routers.auth import router as auth_router  # noqa: E402
+from backend.routers.favorites import router as favorites_router  # noqa: E402
 from backend.routers.search import router as search_router  # noqa: E402
 
 app.include_router(search_router)
+app.include_router(auth_router)
+app.include_router(favorites_router)
 app.include_router(admin_router)
 
 

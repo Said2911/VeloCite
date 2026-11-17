@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins, or "*"
     CORS_ORIGINS: str = "*"
 
+    # Auth — set a long random JWT_SECRET in production
+    JWT_SECRET: str = "change-me-in-production"
+    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # one week
+
     # Admin / demo data
     ADMIN_TOKEN: Optional[str] = None      # required header for /api/v1/admin/*
     AUTO_SEED: bool = True                 # generate demo listings if the DB is empty

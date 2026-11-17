@@ -43,6 +43,9 @@ services:
       DATABASE_URL: postgresql://velocite:velocite123@postgres:5432/velocite
       REDIS_URL: redis://redis:6379
       EXCHANGE_RATE_API_URL: https://api.exchangerate-api.com/v4/latest/USD
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+      AUTO_SEED: "true"
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
     ports:
       - "8001:8001"
     depends_on:

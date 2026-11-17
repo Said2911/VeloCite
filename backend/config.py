@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     # App
     APP_NAME: str = "VeloCite API"
-    APP_VERSION: str = "0.1.0"
+    APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 
     # Database
@@ -32,8 +32,17 @@ class Settings(BaseSettings):
     MAX_PAGE_SIZE: int = 100
     SEARCH_CACHE_TTL: int = 300  # seconds
 
-    # Mapbox
-    MAPBOX_TOKEN: Optional[str] = None
+    # CORS — comma-separated list of allowed origins, or "*"
+    CORS_ORIGINS: str = "*"
+
+    # Admin / demo data
+    ADMIN_TOKEN: Optional[str] = None      # required header for /api/v1/admin/*
+    AUTO_SEED: bool = True                 # generate demo listings if the DB is empty
+    SEED_LISTINGS_PER_MARKET: int = 80     # per Baku district / regional city
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     class Config:
         env_file = ".env"

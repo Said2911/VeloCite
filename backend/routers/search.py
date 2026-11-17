@@ -11,7 +11,7 @@ from backend.models.listing import (
     SortOption,
 )
 from backend.services.currency import CurrencyService
-from backend.services.search import SEARCH_CACHE_PREFIX, SearchService
+from backend.services.search import SearchService
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 
@@ -66,15 +66,3 @@ async def search_listings(
 @router.get("/currencies")
 async def get_supported_currencies() -> dict[str, str]:
     return CurrencyService.SUPPORTED_CURRENCIES
-
-
-@router.post("/seed")
-async def seed_data(request: Request):
-    import sys
-    sys.path.insert(0, '/app')
-    from scrapers.data_generator import generate_and_insert
-    from analytics.scoring import recompute_all_scores
-    await generate_and_insert(80)
-    scored = await recompute_all_scores(request.app.state.db_pool)
-    await request.app.state.cache.delete_prefix(SEARCH_CACHE_PREFIX)
-    return {"status": "done", "scored": scored}

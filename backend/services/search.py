@@ -9,15 +9,9 @@ import asyncpg
 
 from backend.config import settings
 from backend.models.listing import SearchParams, SearchResponse
+from backend.services import ranking
 from backend.services.currency import CurrencyService
 
-try:
-    import real_estate_engine as cpp_engine
-    search_engine = cpp_engine.SearchEngine()
-    CPP_AVAILABLE = True
-except ImportError:
-    CPP_AVAILABLE = False
-    print("⚠️ C++ engine not available, skipping ranking")
 
 
 class SearchService:
@@ -120,15 +114,9 @@ class SearchService:
 
         listings = [dict(r) for r in rows]
 
-        # ── C++ ranking ───────────────────────────────────────────────────────
-        if CPP_AVAILABLE and params.lat and params.lng:
-            ranked = search_engine.rank_listings(
-                listings, params.lat, params.lng
-            )
-            score_map = {r[0]: r[1] for r in ranked}
-            listings.sort(
-                key=lambda x: score_map.get(x['id'], 0), reverse=True
-            )
+        # ── Relevance ranking (C++ engine if compiled, Python otherwise) ──────
+        if params.lat is not None and params.lng is not None:
+            listings = ranking.rank(listings, params.lat, params.lng)
 
         # ── Currency conversion ───────────────────────────────────────────────
         rate = await self.fx.get_rate("USD", params.currency)

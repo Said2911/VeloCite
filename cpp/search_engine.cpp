@@ -27,9 +27,23 @@ static double haversine_km(double lat1, double lon1, double lat2, double lon2) {
     return R * 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0-a));
 }
 
+static bool has(const std::map<std::string, py::object>& m, const std::string& key) {
+    auto it = m.find(key);
+    return it != m.end() && !it->second.is_none();
+}
+
+static double get_or(const std::map<std::string, py::object>& m, const std::string& key, double fallback) {
+    return has(m, key) ? m.at(key).cast<double>() : fallback;
+}
+
 class SearchEngine {
 public:
 
+    // Score = weighted sum of four 0..10 components:
+    //   value_score  — from the analytics engine (missing → 5)
+    //   proximity    — 10 at the search centre, decays with distance
+    //   recency      — 10 for a fresh listing, decays with days on market
+    //   completeness — share of filled-in details (optional key, 0..10)
     std::vector<std::pair<std::string, double>> rank_listings(
         const std::vector<std::map<std::string, py::object>>& listings,
         double center_lat,
@@ -41,19 +55,29 @@ public:
 
         for (const auto& listing : listings) {
             std::string id = listing.at("id").cast<std::string>();
-            double lat = listing.at("lat").cast<double>();
-            double lng = listing.at("lng").cast<double>();
-            double vs  = listing.at("value_score").cast<double>();
+            double vs  = get_or(listing, "value_score", 5.0);
 
-            double dist_km = haversine_km(center_lat, center_lng, lat, lng);
-            double proximity_score = 10.0 / (1.0 + dist_km * 0.1);
-            double final_score = weights.value_score * vs
-                               + weights.proximity   * proximity_score;
+            double proximity_score = 5.0;
+            if (has(listing, "lat") && has(listing, "lng")) {
+                double lat = listing.at("lat").cast<double>();
+                double lng = listing.at("lng").cast<double>();
+                double dist_km = haversine_km(center_lat, center_lng, lat, lng);
+                proximity_score = 10.0 / (1.0 + dist_km * 0.1);
+            }
+
+            double days = get_or(listing, "days_listed", 30.0);
+            double recency_score = 10.0 * std::exp(-std::max(0.0, days) / 30.0);
+            double completeness_score = get_or(listing, "completeness", 5.0);
+
+            double final_score = weights.value_score  * vs
+                               + weights.proximity    * proximity_score
+                               + weights.recency      * recency_score
+                               + weights.completeness * completeness_score;
 
             results.emplace_back(id, final_score);
         }
 
-        std::sort(results.begin(), results.end(),
+        std::stable_sort(results.begin(), results.end(),
             [](const auto& a, const auto& b){ return a.second > b.second; });
 
         return results;
@@ -87,6 +111,7 @@ public:
         auto buf = prices.request();
         size_t n = buf.size;
         double* ptr = static_cast<double*>(buf.ptr);
+        if (n == 0) return py::array_t<double>(0);
 
         double mn = *std::min_element(ptr, ptr + n);
         double mx = *std::max_element(ptr, ptr + n);
@@ -115,7 +140,9 @@ PYBIND11_MODULE(real_estate_engine, m) {
 
     py::class_<SearchEngine>(m, "SearchEngine")
         .def(py::init<>())
-        .def("rank_listings",    &SearchEngine::rank_listings)
+        .def("rank_listings",    &SearchEngine::rank_listings,
+             py::arg("listings"), py::arg("center_lat"), py::arg("center_lng"),
+             py::arg("weights") = RankWeights{})
         .def("bbox_filter",      &SearchEngine::bbox_filter)
         .def("normalize_prices", &SearchEngine::normalize_prices);
 }

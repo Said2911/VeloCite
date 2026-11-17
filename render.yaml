@@ -7,6 +7,7 @@ services:
     name: velocite-api
     runtime: docker
     plan: free
+    region: frankfurt      # same region as the Neon database (AWS eu-central-1)
     dockerfilePath: ./docker/api.Dockerfile
     dockerContext: .
     healthCheckPath: /health

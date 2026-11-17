@@ -1,8 +1,8 @@
 name: 📦 Release & Changelog
 
+# Run manually: Actions → Release & Changelog → Run workflow
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write

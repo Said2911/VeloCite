@@ -51,5 +51,8 @@ async def seed_data(request: Request):
     import sys
     sys.path.insert(0, '/app')
     from scrapers.data_generator import generate_and_insert
+    from analytics.scoring import recompute_all_scores
     await generate_and_insert(80)
-    return {"status": "done"}
+    scored = await recompute_all_scores(request.app.state.db_pool)
+    await request.app.state.cache.delete_prefix("search:")
+    return {"status": "done", "scored": scored}

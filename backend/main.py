@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncpg
 
+from analytics.scoring import recompute_all_scores
 from backend.cache import create_cache
 from backend.config import settings
 from backend.db import run_migrations
@@ -39,6 +40,12 @@ async def lifespan(app: FastAPI):
         print(f"⚠️ Migrations failed: {', '.join(failed)} — is PostGIS installed?")
     else:
         print("✅ Migrations applied")
+        # Score every listing against its own segment (city + type + sale/rent)
+        try:
+            scored = await recompute_all_scores(db_pool)
+            print(f"✅ Value scores recomputed for {scored} listings")
+        except Exception as e:
+            print(f"⚠️ Value score recompute failed: {e}")
 
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} started")
     print(f"✅ Database connected")

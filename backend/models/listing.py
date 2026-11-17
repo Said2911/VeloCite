@@ -99,3 +99,52 @@ class SearchResponse(BaseModel):
     total_pages: int
     sort: str
     market_summary: Optional[MarketSummary] = None
+
+
+class PricePoint(BaseModel):
+    date: datetime
+    price_display: float
+
+
+class ListingDetailResponse(BaseModel):
+    """One listing with its market context."""
+
+    listing: ListingResponse
+    segment: str                                # "district" or "city"
+    percentile: Optional[float] = None          # 0 = cheapest per m² in its segment
+    market: Optional[MarketSummary] = None      # same segment, same type, sale or rent
+    comparables: list[ListingResponse]
+    price_history: list[PricePoint]
+
+
+class DistrictOverview(BaseModel):
+    district: str
+    listings: int
+    median_sale_price_sqm: Optional[float] = None
+    median_rent_price_sqm: Optional[float] = None
+
+
+class MarketOverview(BaseModel):
+    """Aggregated stats for one city (values in the display currency)."""
+
+    country_code: str
+    city: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    listings: int
+    sale_listings: int
+    rent_listings: int
+    median_sale_price_sqm: Optional[float] = None
+    median_rent_price_sqm: Optional[float] = None
+    avg_value_score: Optional[float] = None
+    price_trend_30d: Optional[float] = None     # % change of sale prices
+    currency: str
+    districts: list[DistrictOverview] = []
+
+
+class MarketsResponse(BaseModel):
+    total_listings: int
+    total_cities: int
+    total_districts: int
+    currency: str
+    markets: list[MarketOverview]

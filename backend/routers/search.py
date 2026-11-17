@@ -4,13 +4,16 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from backend.models.listing import (
+    ListingDetailResponse,
     ListingType,
+    MarketsResponse,
     PropertyType,
     SearchParams,
     SearchResponse,
     SortOption,
 )
 from backend.services.currency import CurrencyService
+from backend.services.listings import ListingService
 from backend.services.search import SearchService
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
@@ -61,6 +64,25 @@ async def search_listings(
         currency=_check_currency(currency), sort=sort, page=page, page_size=page_size,
     )
     return await service.search(params)
+
+
+@router.get("/listings/{listing_id}", response_model=ListingDetailResponse)
+async def get_listing(
+    listing_id: str,
+    request: Request,
+    currency: str = Query("AZN", min_length=3, max_length=3),
+):
+    service = ListingService(request.app.state.db_pool, request.app.state.cache)
+    detail = await service.get_detail(listing_id, _check_currency(currency))
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    return detail
+
+
+@router.get("/markets", response_model=MarketsResponse)
+async def get_markets(request: Request, currency: str = Query("AZN", min_length=3, max_length=3)):
+    service = ListingService(request.app.state.db_pool, request.app.state.cache)
+    return await service.markets(_check_currency(currency))
 
 
 @router.get("/currencies")

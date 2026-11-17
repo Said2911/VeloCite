@@ -33,6 +33,7 @@ PRICE_TREND_SQL = """
 """
 
 MIN_COMPARABLES = 5          # below this a segment has "insufficient data"
+MIN_DISTRICT_COMPARABLES = 8  # district used instead of city when it has this many
 UNDERPRICED_PERCENTILE = 25  # cheapest 25% per m² → underpriced
 FAIR_PERCENTILE = 65         # 25–65% → fair value, above → overpriced
 
@@ -135,32 +136,13 @@ def build_market_report(df: pd.DataFrame) -> dict[str, Any]:
     return report
 
 
-def score_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Vectorised value scoring for many listings at once.
-
-    Expects columns: country_code, city, property_type, listing_type,
-    price_per_sqm, year_built. Each listing is compared only with listings
-    in the same segment (city + property type + sale/rent).
-
-    Adds columns: percentile, value_score, market_position.
-    """
-    out = df.reset_index(drop=True)  # unique labels for .loc updates
-    out["percentile"] = np.nan
-    out["value_score"] = 5.0
-    out["market_position"] = "insufficient_data"
-
-    if out.empty:
-        return out
-
-    out["price_per_sqm"] = pd.to_numeric(out["price_per_sqm"], errors="coerce").astype(float)
+def _score_segments(out: pd.DataFrame, segment: list[str], min_count: int) -> None:
+    """Score every group of `segment` with at least `min_count` prices (in place)."""
     current_year = pd.Timestamp.now().year
-    segment = ["country_code", "city", "property_type", "listing_type"]
-
-    for _, idx in out.groupby(segment).groups.items():
+    for _, idx in out.groupby(segment, dropna=True).groups.items():
         group = out.loc[idx]
         valid = group["price_per_sqm"].notna()
-        if valid.sum() < MIN_COMPARABLES:
+        if valid.sum() < min_count:
             continue
 
         g = group[valid]
@@ -176,12 +158,45 @@ def score_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             median_age = current_year - median_year
             factors = ages.apply(lambda a: age_factor(a, median_age))
 
-        scores = (raw_score * factors).clip(0.0, 10.0).round(2)
-
         out.loc[g.index, "percentile"] = pct.round(1)
-        out.loc[g.index, "value_score"] = scores
+        out.loc[g.index, "value_score"] = (raw_score * factors).clip(0.0, 10.0).round(2)
         out.loc[g.index, "market_position"] = pct.apply(position_for_percentile)
+        out.loc[g.index, "segment_level"] = "district" if "district" in segment else "city"
 
+
+def score_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Vectorised value scoring for many listings at once.
+
+    Expects columns: country_code, city, property_type, listing_type,
+    price_per_sqm, year_built and (optionally) district.
+
+    Each listing is compared with similar listings (same property type and
+    sale/rent) in the same city. In big cities a listing is compared within
+    its own district instead, when the district has at least
+    MIN_DISTRICT_COMPARABLES similar listings — a flat in Səbail should not be
+    called "overpriced" just because Səbail is more expensive than Sabunçu.
+
+    Adds columns: percentile, value_score, market_position, segment_level.
+    """
+    out = df.reset_index(drop=True)  # unique labels for .loc updates
+    out["percentile"] = np.nan
+    out["value_score"] = 5.0
+    out["market_position"] = "insufficient_data"
+    out["segment_level"] = None
+
+    if out.empty:
+        return out
+
+    out["price_per_sqm"] = pd.to_numeric(out["price_per_sqm"], errors="coerce").astype(float)
+
+    _score_segments(out, ["country_code", "city", "property_type", "listing_type"], MIN_COMPARABLES)
+    if "district" in out.columns:
+        _score_segments(
+            out,
+            ["country_code", "city", "district", "property_type", "listing_type"],
+            MIN_DISTRICT_COMPARABLES,
+        )
     return out
 
 

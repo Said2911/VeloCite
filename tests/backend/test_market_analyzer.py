@@ -142,3 +142,30 @@ class TestScoreDataframe:
         out = score_dataframe(self._segment(3))
         assert (out["market_position"] == "insufficient_data").all()
         assert (out["value_score"] == 5.0).all()
+
+
+class TestDistrictScoring:
+
+    def _district(self, district, n, start):
+        return pd.DataFrame({
+            "id": [f"{district}-{i}" for i in range(n)],
+            "country_code": "AZ", "city": "Baku", "district": district,
+            "property_type": "apartment", "listing_type": "sale",
+            "price_per_sqm": [start + 50 * i for i in range(n)],
+            "year_built": 2010,
+        })
+
+    def test_expensive_district_is_scored_within_itself(self):
+        # Səbail is much pricier than Sabunçu; its cheapest flat is still a good deal
+        df = pd.concat([self._district("Səbail", 10, 6000), self._district("Sabunçu", 10, 1200)])
+        out = score_dataframe(df)
+        sebail = out[out["district"] == "Səbail"]
+        assert (sebail["segment_level"] == "district").all()
+        assert sebail["market_position"].iloc[0] == "underpriced"
+
+    def test_small_district_falls_back_to_city(self):
+        df = pd.concat([self._district("Səbail", 10, 6000), self._district("Qaradağ", 3, 1000)])
+        out = score_dataframe(df)
+        qaradag = out[out["district"] == "Qaradağ"]
+        assert (qaradag["segment_level"] == "city").all()
+        assert (qaradag["market_position"] == "underpriced").all()

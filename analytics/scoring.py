@@ -15,7 +15,7 @@ from analytics.market_analyzer import score_dataframe
 logger = logging.getLogger(__name__)
 
 LOAD_SQL = """
-    SELECT id, country_code, city, property_type, listing_type, price_per_sqm, year_built
+    SELECT id, country_code, city, district, property_type, listing_type, price_per_sqm, year_built
     FROM listings
     WHERE is_active = TRUE
 """

@@ -1,136 +1,115 @@
 # scrapers/data_generator.py
-# Generates realistic property listings based on real market prices
-# Used for demo and development — produces 1000+ listings across 15 cities
+# Generates realistic demo listings for Azerbaijan (Baku districts + regional cities).
+#
+# Price ranges are in AZN per m² (sale) and AZN per m² per month (rent), based on
+# public market reviews from 2025–2026 (Azerbaijan Chamber of Appraisers district
+# ranges, m2map median for Baku ≈ 2,735 AZN/m², median rent ≈ 11 AZN/m²/month) and
+# asking prices seen on listing sites. Regional cities without published statistics
+# are rough estimates. Prices are stored in USD (AZN is pegged at 1.70 per USD).
 
 import asyncio
-import asyncpg
+import os
 import random
 import uuid
-import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-# Real market data (price per sqm in USD, 2024)
-CITY_MARKET_DATA = {
-    "Berlin":      {"country": "DE", "lat": 52.5200, "lng": 13.4050, "currency": "EUR",
-                    "sale_ppsqm": (4000, 9000),  "rent_ppsqm": (12, 28),
-                    "districts": ["Mitte", "Prenzlauer Berg", "Kreuzberg", "Charlottenburg", "Friedrichshain", "Neukölln"]},
-    "Munich":      {"country": "DE", "lat": 48.1351, "lng": 11.5820, "currency": "EUR",
-                    "sale_ppsqm": (8000, 16000), "rent_ppsqm": (18, 38),
-                    "districts": ["Maxvorstadt", "Schwabing", "Bogenhausen", "Sendling", "Pasing"]},
-    "Hamburg":     {"country": "DE", "lat": 53.5511, "lng": 9.9937,  "currency": "EUR",
-                    "sale_ppsqm": (5000, 11000), "rent_ppsqm": (14, 30),
-                    "districts": ["Altona", "Eimsbüttel", "Harburg", "Wandsbek", "Bergedorf"]},
-    "Paris":       {"country": "FR", "lat": 48.8566, "lng": 2.3522,  "currency": "EUR",
-                    "sale_ppsqm": (9000, 18000), "rent_ppsqm": (25, 50),
-                    "districts": ["Le Marais", "Montmartre", "Saint-Germain", "Bastille", "Oberkampf"]},
-    "Barcelona":   {"country": "ES", "lat": 41.3851, "lng": 2.1734,  "currency": "EUR",
-                    "sale_ppsqm": (4000, 10000), "rent_ppsqm": (14, 28),
-                    "districts": ["Eixample", "Gràcia", "Barceloneta", "Poblenou", "Sarrià"]},
-    "Madrid":      {"country": "ES", "lat": 40.4168, "lng": -3.7038, "currency": "EUR",
-                    "sale_ppsqm": (3500, 9000),  "rent_ppsqm": (12, 26),
-                    "districts": ["Salamanca", "Chamberí", "Retiro", "Malasaña", "Lavapiés"]},
-    "Dubai":       {"country": "AE", "lat": 25.2048, "lng": 55.2708, "currency": "AED",
-                    "sale_ppsqm": (3000, 12000), "rent_ppsqm": (80, 250),
-                    "districts": ["Downtown", "Marina", "JBR", "Business Bay", "Palm Jumeirah", "DIFC"]},
-    "Abu Dhabi":   {"country": "AE", "lat": 24.4539, "lng": 54.3773, "currency": "AED",
-                    "sale_ppsqm": (2000, 8000),  "rent_ppsqm": (60, 180),
-                    "districts": ["Corniche", "Al Reem", "Yas Island", "Saadiyat", "Al Khalidiyah"]},
-    "New York":    {"country": "US", "lat": 40.7128, "lng": -74.0060, "currency": "USD",
-                    "sale_ppsqm": (10000, 25000),"rent_ppsqm": (40, 100),
-                    "districts": ["Manhattan", "Brooklyn", "Queens", "Bronx", "Hoboken"]},
-    "Los Angeles": {"country": "US", "lat": 34.0522, "lng": -118.2437,"currency": "USD",
-                    "sale_ppsqm": (6000, 18000), "rent_ppsqm": (25, 65),
-                    "districts": ["Beverly Hills", "Santa Monica", "Venice", "Silver Lake", "Koreatown"]},
-    "Tokyo":       {"country": "JP", "lat": 35.6762, "lng": 139.6503, "currency": "JPY",
-                    "sale_ppsqm": (600000, 1800000), "rent_ppsqm": (2000, 6000),
-                    "districts": ["Shibuya", "Shinjuku", "Minato", "Chiyoda", "Roppongi"]},
-    "Singapore":   {"country": "SG", "lat": 1.3521,  "lng": 103.8198, "currency": "SGD",
-                    "sale_ppsqm": (12000, 30000), "rent_ppsqm": (40, 100),
-                    "districts": ["Orchard", "Marina Bay", "Bukit Timah", "Sentosa", "Tanjong Pagar"]},
-    "Amsterdam":   {"country": "NL", "lat": 52.3676, "lng": 4.9041,  "currency": "EUR",
-                    "sale_ppsqm": (6000, 14000), "rent_ppsqm": (20, 45),
-                    "districts": ["Jordaan", "De Pijp", "Oud-West", "Centrum", "Oost"]},
-    "Lisbon":      {"country": "PT", "lat": 38.7169, "lng": -9.1399, "currency": "EUR",
-                    "sale_ppsqm": (3500, 9000),  "rent_ppsqm": (12, 28),
-                    "districts": ["Alfama", "Chiado", "Baixa", "Belém", "Mouraria"]},
-    "Istanbul":    {"country": "TR", "lat": 41.0082, "lng": 28.9784, "currency": "USD",
-                    "sale_ppsqm": (1500, 6000),  "rent_ppsqm": (8, 25),
-                    "districts": ["Beyoğlu", "Kadıköy", "Beşiktaş", "Şişli", "Üsküdar"]},
-}
+AZN_PER_USD = 1.70
 
-PROPERTY_TYPES = ["apartment", "apartment", "apartment", "house", "villa"]
-CURRENCY_TO_USD = {
-    "EUR": 1.08, "AED": 0.272, "USD": 1.0,
-    "JPY": 0.0067, "SGD": 0.74,
-}
+# Each entry is one "market": a Baku district or a whole regional city.
+MARKETS: list[dict] = [
+    # ── Baku ──────────────────────────────────────────────────────────────────
+    {"city": "Baku", "districts": ["Səbail"],    "lat": 40.3660, "lng": 49.8350, "spread": 0.012,
+     "sale": (3500, 9000), "rent": (14, 30)},
+    {"city": "Baku", "districts": ["Nəsimi"],    "lat": 40.3830, "lng": 49.8280, "spread": 0.012,
+     "sale": (2400, 4800), "rent": (12, 24)},
+    {"city": "Baku", "districts": ["Yasamal"],   "lat": 40.3870, "lng": 49.8030, "spread": 0.014,
+     "sale": (2200, 4000), "rent": (11, 20)},
+    {"city": "Baku", "districts": ["Nərimanov"], "lat": 40.4030, "lng": 49.8700, "spread": 0.014,
+     "sale": (2500, 4000), "rent": (11, 20)},
+    {"city": "Baku", "districts": ["Nizami"],    "lat": 40.3960, "lng": 49.9300, "spread": 0.012,
+     "sale": (2500, 3100), "rent": (9, 15)},
+    {"city": "Baku", "districts": ["Xətai"],     "lat": 40.3790, "lng": 49.9480, "spread": 0.016,
+     "sale": (1800, 3400), "rent": (9, 16)},
+    {"city": "Baku", "districts": ["Binəqədi"],  "lat": 40.4560, "lng": 49.8300, "spread": 0.020,
+     "sale": (1550, 2950), "rent": (7, 12)},
+    {"city": "Baku", "districts": ["Xəzər"],     "lat": 40.4880, "lng": 50.1400, "spread": 0.030,
+     "sale": (1200, 2500), "rent": (6, 12)},
+    {"city": "Baku", "districts": ["Sabunçu"],   "lat": 40.4420, "lng": 49.9480, "spread": 0.025,
+     "sale": (1100, 2200), "rent": (6, 11)},
+    {"city": "Baku", "districts": ["Suraxanı"],  "lat": 40.4180, "lng": 50.0050, "spread": 0.020,
+     "sale": (1400, 2230), "rent": (6, 11)},
+    {"city": "Baku", "districts": ["Qaradağ"],   "lat": 40.3200, "lng": 49.7300, "spread": 0.030,
+     "sale": (1000, 2000), "rent": (5, 10)},
+    # ── Regional cities ───────────────────────────────────────────────────────
+    {"city": "Sumgait",     "districts": ["Mərkəz", "Bulvar", "9-cu mikrorayon", "17-ci mikrorayon"],
+     "lat": 40.5897, "lng": 49.6686, "spread": 0.025, "sale": (1200, 2000), "rent": (5, 10)},
+    {"city": "Ganja",       "districts": ["Kəpəz", "Nizami", "Mərkəz"],
+     "lat": 40.6828, "lng": 46.3606, "spread": 0.030, "sale": (900, 1800), "rent": (4, 8)},
+    {"city": "Mingachevir", "districts": ["Mərkəz", "Sahil", "QRES"],
+     "lat": 40.7640, "lng": 47.0595, "spread": 0.020, "sale": (1000, 1900), "rent": (4, 8)},
+    {"city": "Lankaran",    "districts": ["Mərkəz", "Sahil"],
+     "lat": 38.7529, "lng": 48.8475, "spread": 0.020, "sale": (800, 1500), "rent": (3, 7)},
+    {"city": "Shaki",       "districts": ["Mərkəz", "Yuxarı Baş"],
+     "lat": 41.1919, "lng": 47.1706, "spread": 0.020, "sale": (800, 1500), "rent": (3, 7)},
+    {"city": "Gabala",      "districts": ["Mərkəz", "Vəndam"],
+     "lat": 40.9814, "lng": 47.8458, "spread": 0.030, "sale": (1000, 1900), "rent": (4, 9)},
+    {"city": "Guba",        "districts": ["Mərkəz", "Qırmızı Qəsəbə"],
+     "lat": 41.3600, "lng": 48.5134, "spread": 0.020, "sale": (800, 1500), "rent": (3, 7)},
+]
+
+CITIES = sorted({m["city"] for m in MARKETS})
+
+# Apartments dominate; private houses (həyət evi) and villas (bağ evi) are rarer
+PROPERTY_TYPES = ["apartment"] * 6 + ["house"] * 2 + ["villa"]
 
 
-def random_coord(base: float, spread: float = 0.08) -> float:
+def random_coord(base: float, spread: float) -> float:
     return round(base + random.uniform(-spread, spread), 6)
 
 
-def generate_listing(city: str, market: dict, listing_type: str) -> dict:
+def generate_listing(market: dict, listing_type: str) -> dict:
     property_type = random.choice(PROPERTY_TYPES)
 
-    # Area based on property type
     if property_type == "apartment":
-        area = random.randint(35, 150)
+        area = random.randint(30, 160)
     elif property_type == "house":
-        area = random.randint(80, 300)
+        area = random.randint(70, 260)
     else:  # villa
-        area = random.randint(150, 500)
+        area = random.randint(140, 450)
 
-    # Price per sqm with some variance
-    if listing_type == "sale":
-        ppsqm_range = market["sale_ppsqm"]
-    else:
-        ppsqm_range = market["rent_ppsqm"]
+    low, high = market["sale"] if listing_type == "sale" else market["rent"]
+    ppsqm = random.uniform(low, high)
+    price_azn = round(ppsqm * area, -1 if listing_type == "rent" else -2)
+    price_usd = round(price_azn / AZN_PER_USD, 2)
 
-    ppsqm = random.uniform(*ppsqm_range)
-    price = round(ppsqm * area)
+    rooms = max(1, min(6, area // 28 + random.randint(-1, 1)))
+    bedrooms = max(0, rooms - 1)
+    bathrooms = max(1, rooms // 2)
 
-    # Convert to USD
-    currency = market["currency"]
-    rate = CURRENCY_TO_USD.get(currency, 1.0)
-    price_usd = round(price * rate, 2)
+    # Placeholder until analytics/scoring.py recomputes it against the market
+    value_score = round(10 * (1 - (ppsqm - low) / (high - low)), 1)
+    value_score = max(0.5, min(9.9, value_score))
+    market_position = "underpriced" if value_score >= 7 else "fair_value" if value_score >= 4 else "overpriced"
 
-    bedrooms = max(0, min(6, area // 30 + random.randint(-1, 1)))
-    bathrooms = max(1, bedrooms - random.randint(0, 1))
-
-    district = random.choice(market["districts"])
-
-    # Value score — cheaper = higher score
-    mid_ppsqm = (ppsqm_range[0] + ppsqm_range[1]) / 2
-    value_score = round(10 * (1 - (ppsqm - ppsqm_range[0]) / (ppsqm_range[1] - ppsqm_range[0])), 1)
-    value_score = max(0.5, min(9.9, value_score + random.uniform(-0.5, 0.5)))
-
-    if value_score >= 7:
-        market_position = "underpriced"
-    elif value_score >= 4:
-        market_position = "fair_value"
-    else:
-        market_position = "overpriced"
-
-    listed_days_ago = random.randint(0, 90)
-    listed_at = datetime.utcnow() - timedelta(days=listed_days_ago)
+    listed_at = datetime.now(timezone.utc) - timedelta(days=random.randint(0, 90))
 
     return {
         "id": str(uuid.uuid4()),
-        "external_id": f"gen_{city.lower().replace(' ', '_')}_{uuid.uuid4().hex[:8]}",
+        "external_id": f"gen_az_{uuid.uuid4().hex[:12]}",
         "source": "generated",
-        "country_code": market["country"],
-        "city": city,
-        "district": district,
-        "lat": random_coord(market["lat"]),
-        "lng": random_coord(market["lng"]),
+        "country_code": "AZ",
+        "city": market["city"],
+        "district": random.choice(market["districts"]),
+        "lat": random_coord(market["lat"], market["spread"]),
+        "lng": random_coord(market["lng"], market["spread"]),
         "property_type": property_type,
         "listing_type": listing_type,
         "price_usd": price_usd,
         "area_sqm": float(area),
         "bedrooms": bedrooms,
         "bathrooms": bathrooms,
-        "floor": random.randint(0, 20) if property_type == "apartment" else None,
-        "year_built": random.randint(1960, 2024),
+        "floor": random.randint(1, 20) if property_type == "apartment" else None,
+        "year_built": random.randint(1960, 2026),
         "value_score": value_score,
         "market_position": market_position,
         "listed_at": listed_at,
@@ -138,57 +117,99 @@ def generate_listing(city: str, market: dict, listing_type: str) -> dict:
     }
 
 
-async def generate_and_insert(count_per_city: int = 80):
-    DATABASE_URL = os.getenv(
-        "DATABASE_URL",
-        "postgresql://velocite:velocite123@postgres:5432/velocite"
+def generate_price_history(listing: dict, market_drift: float) -> list[tuple]:
+    """
+    Earlier asking prices for a sale listing. `market_drift` is the market's
+    price change over 60 days (0.03 = +3%), so the 30-day trend has data.
+    """
+    now = datetime.now(timezone.utc)
+    age_days = (now - listing["listed_at"]).days
+    if listing["listing_type"] != "sale" or age_days < 10 or random.random() > 0.6:
+        return []
+    points = []
+    for days_ago in sorted(random.sample(range(5, age_days), k=min(3, random.randint(1, 3), age_days - 5)), reverse=True):
+        factor = 1 - market_drift * (days_ago / 60) + random.uniform(-0.015, 0.015)
+        points.append((listing["id"], now - timedelta(days=days_ago), round(listing["price_usd"] * factor, 2)))
+    return points
+
+
+INSERT_LISTING_SQL = """
+    INSERT INTO listings (
+        id, external_id, source, country_code, city, district,
+        property_type, listing_type, price_usd, area_sqm,
+        bedrooms, bathrooms, floor, year_built,
+        value_score, market_position, listed_at, is_active,
+        location
+    ) VALUES (
+        $1::uuid, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10,
+        $11, $12, $13, $14,
+        $15, $16, $17, $18,
+        ST_MakePoint($20, $19)::geography
     )
+    ON CONFLICT (external_id) DO NOTHING
+"""
 
-    db = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=5)
+INSERT_HISTORY_SQL = """
+    INSERT INTO price_history (listing_id, recorded_at, price_usd, currency_code)
+    SELECT $1::uuid, $2, $3, 'USD'
+    WHERE EXISTS (SELECT 1 FROM listings WHERE id = $1::uuid)
+"""
+
+
+async def generate_and_insert(count_per_market: int = 80, pool=None) -> int:
+    """
+    Insert `count_per_market` listings (half sale, half rent) for every Baku
+    district and regional city, plus price history. Reuses `pool` if given.
+    Returns the number of listings inserted.
+    """
+    own_pool = pool is None
+    if own_pool:
+        import asyncpg
+
+        database_url = os.getenv("DATABASE_URL", "postgresql://velocite:velocite123@postgres:5432/velocite")
+        pool = await asyncpg.create_pool(database_url, min_size=1, max_size=3)
+
     total = 0
+    try:
+        for market in MARKETS:
+            listings = [
+                generate_listing(market, listing_type)
+                for listing_type in ("sale", "rent")
+                for _ in range(count_per_market // 2)
+            ]
+            drift = random.uniform(-0.02, 0.06)
+            history = [p for item in listings for p in generate_price_history(item, drift)]
 
-    for city, market in CITY_MARKET_DATA.items():
-        city_count = 0
-        for listing_type in ["sale", "rent"]:
-            for _ in range(count_per_city // 2):
-                listing = generate_listing(city, market, listing_type)
-                try:
-                    await db.execute("""
-                        INSERT INTO listings (
-                            id, external_id, source, country_code, city, district,
-                            property_type, listing_type, price_usd, area_sqm,
-                            bedrooms, bathrooms, floor, year_built,
-                            value_score, market_position, listed_at, is_active,
-                            location
-                        ) VALUES (
-                            $1::uuid, $2, $3, $4, $5, $6,
-                            $7, $8, $9, $10,
-                            $11, $12, $13, $14,
-                            $15, $16, $17, $18,
-                            ST_MakePoint($20, $19)::geography
+            async with pool.acquire() as conn:
+                async with conn.transaction():
+                    before = await conn.fetchval("SELECT COUNT(*) FROM listings")
+                    await conn.executemany(INSERT_LISTING_SQL, [
+                        (
+                            item["id"], item["external_id"], item["source"],
+                            item["country_code"], item["city"], item["district"],
+                            item["property_type"], item["listing_type"],
+                            item["price_usd"], item["area_sqm"],
+                            item["bedrooms"], item["bathrooms"], item["floor"], item["year_built"],
+                            item["value_score"], item["market_position"],
+                            item["listed_at"], item["is_active"],
+                            item["lat"], item["lng"],
                         )
-                        ON CONFLICT (external_id) DO NOTHING
-                    """,
-                        listing["id"], listing["external_id"], listing["source"],
-                        listing["country_code"], listing["city"], listing["district"],
-                        listing["property_type"], listing["listing_type"],
-                        listing["price_usd"], listing["area_sqm"],
-                        listing["bedrooms"], listing["bathrooms"],
-                        listing["floor"], listing["year_built"],
-                        listing["value_score"], listing["market_position"],
-                        listing["listed_at"], listing["is_active"],
-                        listing["lat"], listing["lng"]
-                    )
-                    city_count += 1
-                    total += 1
-                except Exception as e:
-                    print(f"Error inserting {city}: {e}")
+                        for item in listings
+                    ])
+                    if history:
+                        await conn.executemany(INSERT_HISTORY_SQL, history)
+                    inserted = await conn.fetchval("SELECT COUNT(*) FROM listings") - before
 
-        print(f"✅ {city}: {city_count} listings inserted")
+            total += inserted
+            print(f"✅ {market['city']} / {', '.join(market['districts'][:2])}: {inserted} listings")
+    finally:
+        if own_pool:
+            await pool.close()
 
-    await db.close()
-    print(f"\n🎉 Total inserted: {total} listings across {len(CITY_MARKET_DATA)} cities")
+    print(f"\n🎉 Total inserted: {total} listings in {len(CITIES)} cities")
+    return total
 
 
 if __name__ == "__main__":
-    asyncio.run(generate_and_insert(count_per_city=80))
+    asyncio.run(generate_and_insert())

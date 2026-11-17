@@ -1,32 +1,38 @@
 # backend/models/listing.py
 # Pydantic models for request validation and response formatting
 
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
+SortOption = Literal["relevance", "value", "price_asc", "price_desc", "newest", "area_desc", "ppsqm_asc"]
+PropertyType = Literal["apartment", "house", "villa", "land", "commercial"]
+ListingType = Literal["sale", "rent"]
 
 
 class SearchParams(BaseModel):
     """Incoming search request parameters."""
 
     # Location
-    country_code: Optional[str] = Field(None, max_length=2)
-    city: Optional[str] = None
+    country_code: Optional[str] = Field(None, min_length=2, max_length=2)
+    city: Optional[str] = Field(None, max_length=100)
     lat: Optional[float] = Field(None, ge=-90, le=90)
     lng: Optional[float] = Field(None, ge=-180, le=180)
     radius_km: Optional[float] = Field(None, ge=0.1, le=500)
 
     # Property filters
-    property_type: Optional[str] = None
-    listing_type: str = "sale"
+    property_type: Optional[PropertyType] = None
+    listing_type: ListingType = "sale"
     min_price: Optional[float] = Field(None, ge=0)
-    max_price: Optional[float] = None
+    max_price: Optional[float] = Field(None, ge=0)
     min_area: Optional[float] = Field(None, ge=0)
-    max_area: Optional[float] = None
+    max_area: Optional[float] = Field(None, ge=0)
     bedrooms: Optional[int] = Field(None, ge=0, le=20)
 
     # Display
-    currency: str = "USD"
+    currency: str = Field("USD", min_length=3, max_length=3)
+    sort: SortOption = "value"
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100)
 
@@ -37,34 +43,36 @@ class ListingResponse(BaseModel):
     id: str
     country_code: str
     city: str
-    district: Optional[str]
-    address: Optional[str]
+    district: Optional[str] = None
+    address: Optional[str] = None
 
     # Coordinates
-    lat: float
-    lng: float
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
     # Property details
     property_type: str
     listing_type: str
-    area_sqm: Optional[float]
-    bedrooms: Optional[int]
-    bathrooms: Optional[int]
-    floor: Optional[int]
-    year_built: Optional[int]
+    area_sqm: Optional[float] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    floor: Optional[int] = None
+    year_built: Optional[int] = None
 
     # Pricing (converted to user's currency)
     price_usd: float
     price_display: float
-    price_per_sqm_display: Optional[float]
+    price_per_sqm_display: Optional[float] = None
     currency: str
+    currency_symbol: str
 
     # Analytics scores
-    value_score: Optional[float]
-    market_position: Optional[str]
+    value_score: Optional[float] = None
+    market_position: Optional[str] = None
 
     # Metadata
-    listed_at: datetime
+    source: Optional[str] = None
+    listed_at: Optional[datetime] = None
 
 
 class MarketSummary(BaseModel):
@@ -84,4 +92,6 @@ class SearchResponse(BaseModel):
     total: int
     page: int
     page_size: int
-    market_summary: Optional[MarketSummary]
+    total_pages: int
+    sort: str
+    market_summary: Optional[MarketSummary] = None

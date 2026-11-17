@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     MAX_SEARCH_RESULTS: int = 500
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
+    SEARCH_CACHE_TTL: int = 300  # seconds
 
     # Mapbox
     MAPBOX_TOKEN: Optional[str] = None

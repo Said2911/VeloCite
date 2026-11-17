@@ -1,9 +1,14 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
   Search, Globe, Shield, SlidersHorizontal, ArrowRight,
-  MapPin, Star, Facebook, Twitter, Linkedin, Phone, TrendingUp
+  MapPin, Heart, TrendingUp, TrendingDown, HelpCircle
 } from "lucide-react";
+import Logo from "@/components/Logo";
+import Navbar from "@/components/Navbar";
+import { getMarkets, type MarketOverview, type MarketsResponse } from "@/lib/api";
+import { CITY_LOCAL_NAMES, formatMoney } from "@/lib/format";
 
 function FloatingCard({ city, country, price, beds, sqm, emoji, rotate = 0, style = {} }: {
   city: string; country: string; price: string;
@@ -70,34 +75,49 @@ function FeatureCard({ icon, title, desc, gradient }: { icon: React.ReactNode; t
   );
 }
 
-function PropertyCard({ city, country, type, price, emoji }: { city: string; country: string; type: string; price: string; emoji: string; }) {
+const CITY_EMOJI: Record<string, string> = {
+  Baku: "🔥", Sumgait: "🌊", Ganja: "🏛️", Mingachevir: "⚡", Lankaran: "🍵",
+  Shaki: "🏰", Gabala: "⛰️", Guba: "🍎",
+};
+
+function LocationCard({ market }: { market: MarketOverview }) {
   const [h, setH] = useState(false);
+  const trend = market.price_trend_30d;
   return (
-    <div onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)} style={{
-      background: "#fff", borderRadius: 18, overflow: "hidden",
+    <Link href={`/search?city=${encodeURIComponent(market.city)}`} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)} style={{
+      background: "#fff", borderRadius: 18, overflow: "hidden", textDecoration: "none", color: "inherit",
       boxShadow: h ? "0 20px 48px rgba(11,24,41,0.14)" : "0 4px 16px rgba(11,24,41,0.07)",
-      border: "1px solid #F0F2F5", cursor: "pointer",
+      border: "1px solid #F0F2F5", display: "block",
       transform: h ? "translateY(-5px)" : "translateY(0)", transition: "all 0.3s ease",
     }}>
       <div style={{
-        height: 150, background: "linear-gradient(135deg, #0B1829 0%, #1a3a5c 100%)",
+        height: 120, background: "linear-gradient(135deg, #0B1829 0%, #1a3a5c 100%)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 52, position: "relative",
+        fontSize: 46, position: "relative",
       }}>
-        {emoji}
+        {CITY_EMOJI[market.city] ?? "🏙️"}
         <div style={{
           position: "absolute", top: 12, right: 12, background: "#FF5A1F",
           borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 800, color: "#fff",
-        }}>{price}</div>
+        }}>{market.listings} listings</div>
       </div>
       <div style={{ padding: "14px 16px" }}>
-        <div style={{ fontSize: 10, color: "#FF5A1F", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 4 }}>{type}</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#0B1829", marginBottom: 4 }}>Luxury {type} — {city}</div>
-        <div style={{ fontSize: 12, color: "#9CA3AF", display: "flex", alignItems: "center", gap: 4 }}>
-          <MapPin size={11} />{city}, {country}
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#0B1829", marginBottom: 2 }}>{market.city}</div>
+        <div style={{ fontSize: 12, color: "#9CA3AF", display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+          <MapPin size={11} />{CITY_LOCAL_NAMES[market.city] ?? market.city}{market.districts.length > 1 ? ` · ${market.districts.length} districts` : ""}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+          <span style={{ color: "#6B7280" }}>
+            {market.median_sale_price_sqm != null ? <><b style={{ color: "#0B1829" }}>{formatMoney(market.median_sale_price_sqm, market.currency, true)}</b>/m²</> : "—"}
+          </span>
+          {trend != null && (
+            <span style={{ display: "flex", alignItems: "center", gap: 3, fontWeight: 700, color: trend >= 0 ? "#DC2626" : "#16A34A" }}>
+              {trend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}{trend > 0 ? "+" : ""}{trend.toFixed(1)}%
+            </span>
+          )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -128,93 +148,20 @@ function StepCard({ num, icon, title, desc }: { num: string; icon: React.ReactNo
   );
 }
 
-function TestiCard({ initials, name, location, quote }: { initials: string; name: string; location: string; quote: string; }) {
-  return (
-    <div style={{
-      background: "rgba(255,255,255,0.05)", backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.09)",
-      borderRadius: 20, padding: "24px", flex: 1,
-    }}>
-      <div style={{ display: "flex", gap: 2, marginBottom: 14 }}>
-        {[...Array(5)].map((_, i) => <Star key={i} size={13} fill="#FF5A1F" color="#FF5A1F" />)}
-      </div>
-      <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", fontStyle: "italic", lineHeight: 1.7, marginBottom: 20 }}>"{quote}"</p>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: "50%",
-          background: "linear-gradient(135deg, #FF5A1F, #FF8C00)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 13, fontWeight: 700, color: "#fff",
-        }}>{initials}</div>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{name}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)" }}>{location}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function HomePage() {
-  const [scrolled, setScrolled] = useState(false);
+  const [markets, setMarkets] = useState<MarketsResponse | null>(null);
   useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 30);
-    window.addEventListener("scroll", fn);
-    return () => window.removeEventListener("scroll", fn);
+    getMarkets().then(setMarkets).catch(() => setMarkets(null));
   }, []);
+  const cities = markets?.total_cities ?? 8;
+  const listingsCount = markets ? markets.total_listings.toLocaleString("en-US") : "1,000+";
+  const bakuDistricts = markets?.markets.find(m => m.city === "Baku")?.districts ?? [];
+  const districtCount = bakuDistricts.length || 11;
 
   return (
     <div style={{ fontFamily: "'Inter', 'Geist', sans-serif", overflowX: "hidden" }}>
 
-      {/* NAVBAR */}
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
-        background: scrolled ? "rgba(5,13,26,0.92)" : "rgba(5,13,26,0.35)",
-        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-        borderBottom: `1px solid ${scrolled ? "rgba(255,255,255,0.08)" : "transparent"}`,
-        transition: "all 0.35s ease",
-        padding: "0 48px", height: 64,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 9,
-            background: "linear-gradient(135deg, #FF5A1F 0%, #FF8C00 100%)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontWeight: 800, fontSize: 16,
-            boxShadow: "0 4px 16px rgba(255,90,31,0.4)",
-          }}>V</div>
-          <span style={{ fontWeight: 700, fontSize: 18, color: "#fff", letterSpacing: "-0.4px" }}>
-            Velo<span style={{ color: "#FF5A1F" }}>Cite</span>
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 32, fontSize: 14 }}>
-          {[["Explore", "/search"], ["Locations", "#"], ["About", "#"], ["Blog", "#"]].map(([item, href]) => (
-            <a key={item} href={href} style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", transition: "color 0.2s" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}>{item}</a>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button style={{
-            background: "rgba(255,255,255,0.08)", color: "#fff",
-            border: "1px solid rgba(255,255,255,0.14)", borderRadius: 9,
-            padding: "8px 20px", fontSize: 13, fontWeight: 500, cursor: "pointer",
-          }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.14)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}>Sign In</button>
-          <a href="/search" style={{
-            background: "#FF5A1F", color: "#fff", textDecoration: "none",
-            borderRadius: 9, padding: "8px 20px", fontSize: 13, fontWeight: 700,
-            boxShadow: "0 4px 16px rgba(255,90,31,0.35)", transition: "all 0.2s",
-            display: "flex", alignItems: "center",
-          }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 24px rgba(255,90,31,0.5)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(255,90,31,0.35)"; }}>
-            Explore Now
-          </a>
-        </div>
-      </nav>
+      <Navbar variant="overlay" />
 
       {/* HERO */}
       <section style={{
@@ -238,7 +185,7 @@ export default function HomePage() {
           borderRadius: "50%", pointerEvents: "none",
           background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)",
         }} />
-        <div style={{
+        <div className="vc-two-col vc-pad" style={{
           maxWidth: 1200, margin: "0 auto", padding: "60px 48px",
           display: "grid", gridTemplateColumns: "1fr 1fr",
           gap: 60, alignItems: "center", width: "100%", position: "relative",
@@ -251,17 +198,17 @@ export default function HomePage() {
               fontSize: 12, color: "#FF8C52", fontWeight: 500, marginBottom: 28,
             }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#FF5A1F", display: "inline-block" }} />
-              8+ Countries &nbsp;•&nbsp; 1,200+ Listings &nbsp;•&nbsp; 100% Verified
+              {cities} Cities &nbsp;•&nbsp; {listingsCount} Listings &nbsp;•&nbsp; Prices in ₼
             </div>
             <h1 style={{ fontSize: 64, fontWeight: 800, lineHeight: 1.06, letterSpacing: "-2.5px", marginBottom: 22 }}>
-              <span style={{ color: "#fff" }}>Your Home,</span><br />
-              <span style={{ color: "#FF5A1F" }}>Anywhere.</span>
+              <span style={{ color: "#fff" }}>Your Home</span><br />
+              <span style={{ color: "#FF5A1F" }}>in Azerbaijan.</span>
             </h1>
             <p style={{ fontSize: 16, color: "rgba(255,255,255,0.52)", lineHeight: 1.75, marginBottom: 38, maxWidth: 440 }}>
-              AI-powered real estate search across Berlin, Dubai, Tokyo, New York and 11 more cities. Spot underpriced gems with our value scoring engine.
+              Search apartments and houses in all {districtCount} districts of Baku, Sumgait, Ganja and {Math.max(cities - 3, 0)} more cities. Every listing gets a value score, so underpriced homes stand out.
             </p>
             <div style={{ display: "flex", gap: 14, marginBottom: 52 }}>
-              <a href="/search" style={{
+              <Link href="/search" style={{
                 background: "#FF5A1F", color: "#fff", textDecoration: "none",
                 borderRadius: 12, padding: "15px 30px", fontSize: 15, fontWeight: 700,
                 display: "flex", alignItems: "center", gap: 9,
@@ -270,20 +217,20 @@ export default function HomePage() {
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 14px 40px rgba(255,90,31,0.5)"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 32px rgba(255,90,31,0.38)"; }}>
                 <Search size={16} /> Explore Now
-              </a>
-              <button style={{
-                background: "rgba(255,255,255,0.07)", color: "#fff",
+              </Link>
+              <a href="#how-it-works" style={{
+                background: "rgba(255,255,255,0.07)", color: "#fff", textDecoration: "none",
                 border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12,
                 padding: "15px 30px", fontSize: 15, fontWeight: 500,
                 display: "flex", alignItems: "center", gap: 9, cursor: "pointer",
               }}
                 onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}>
-                <Phone size={15} /> Talk to Agent
-              </button>
+                <HelpCircle size={15} /> How it works
+              </a>
             </div>
             <div style={{ display: "flex", gap: 44 }}>
-              {[{ val: "15", lbl: "Cities" }, { val: "1,200+", lbl: "Properties" }, { val: "98%", lbl: "Satisfaction" }].map(s => (
+              {[{ val: String(cities), lbl: "Cities" }, { val: listingsCount, lbl: "Properties" }, { val: String(districtCount), lbl: "Baku districts" }].map(s => (
                 <div key={s.lbl}>
                   <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-1px", lineHeight: 1 }}>{s.val}</div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", marginTop: 4 }}>{s.lbl}</div>
@@ -291,10 +238,10 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div style={{ position: "relative", height: 500 }}>
-            <FloatingCard city="Barcelona" country="Spain" price="$520K" beds={3} sqm={90} emoji="🏖️" rotate={3} style={{ position: "absolute", top: 10, right: 10 }} />
-            <FloatingCard city="New York" country="USA" price="$1.2M" beds={2} sqm={85} emoji="🗽" rotate={-4} style={{ position: "absolute", top: 180, left: 0 }} />
-            <FloatingCard city="Dubai" country="UAE" price="$580K" beds={2} sqm={120} emoji="🌆" rotate={2} style={{ position: "absolute", bottom: 10, right: 50 }} />
+          <div className="vc-hide-mobile" style={{ position: "relative", height: 500 }}>
+            <FloatingCard city="Səbail" country="Baku" price="₼640K" beds={3} sqm={110} emoji="🌊" rotate={3} style={{ position: "absolute", top: 10, right: 10 }} />
+            <FloatingCard city="Nərimanov" country="Baku" price="₼245K" beds={2} sqm={78} emoji="🏙️" rotate={-4} style={{ position: "absolute", top: 180, left: 0 }} />
+            <FloatingCard city="Qəbələ" country="Gabala" price="₼310K" beds={4} sqm={220} emoji="⛰️" rotate={2} style={{ position: "absolute", bottom: 10, right: 50 }} />
           </div>
         </div>
       </section>
@@ -310,43 +257,44 @@ export default function HomePage() {
             }}>Why VeloCite?</div>
             <h2 style={{ fontSize: 38, fontWeight: 800, color: "#0B1829", letterSpacing: "-1.2px", marginBottom: 14 }}>Everything You Need</h2>
             <p style={{ fontSize: 15, color: "#6B7280", maxWidth: 440, margin: "0 auto", lineHeight: 1.7 }}>
-              One platform to search, analyze, and secure your perfect property anywhere in the world.
+              One platform to search and compare homes across Azerbaijan, from central Baku to the regions.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>
-            <FeatureCard icon={<Globe size={24} />} title="Global Search"
-              desc="Search across 15 major cities in Europe, Middle East, Asia and the Americas — all in one place."
+          <div className="vc-two-col" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>
+            <FeatureCard icon={<Globe size={24} />} title="All of Azerbaijan"
+              desc={`Search every district of Baku and ${Math.max(cities - 1, 0)} regional cities in one place, with prices in manat, dollars or euros.`}
               gradient="linear-gradient(135deg, #3B82F6, #2563EB)" />
             <FeatureCard icon={<SlidersHorizontal size={24} />} title="Smart Filters"
-              desc="Filter by price, area, bedrooms, property type, currency and geographic radius."
+              desc="Filter by district, price, area, rooms, property type and sale or rent; see results on a map."
               gradient="linear-gradient(135deg, #FF5A1F, #FF8C00)" />
             <FeatureCard icon={<Shield size={24} />} title="AI Value Scoring"
-              desc="Every listing gets a 0–10 value score so you instantly spot underpriced gems on the market."
+              desc="Every listing gets a 0–10 score against similar homes in its own district, so you instantly see what is underpriced."
               gradient="linear-gradient(135deg, #0B1829, #1a3a5c)" />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
-            {[
-              { city: "Berlin", country: "DE", type: "Apartment", price: "$420K", emoji: "🏛️" },
-              { city: "Tokyo", country: "JP", type: "Studio", price: "$480K", emoji: "⛩️" },
-              { city: "Lisbon", country: "PT", type: "Villa", price: "$380K", emoji: "🌊" },
-              { city: "Amsterdam", country: "NL", type: "Canal House", price: "$650K", emoji: "🌷" },
-            ].map(p => <PropertyCard key={p.city} {...p} />)}
+          <div id="locations" style={{ scrollMarginTop: 90, display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "48px 0 18px" }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, color: "#0B1829", letterSpacing: "-0.6px" }}>Explore Cities</h3>
+            <span style={{ fontSize: 12, color: "#9CA3AF" }}>Median sale price per m² · 30-day trend</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 28 }}>
+            {markets
+              ? markets.markets.slice(0, 8).map(m => <LocationCard key={`${m.country_code}-${m.city}`} market={m} />)
+              : Array.from({ length: 4 }, (_, i) => <div key={i} className="vc-skeleton" style={{ height: 200 }} />)}
           </div>
           <div style={{ textAlign: "center" }}>
-            <a href="/search" style={{
+            <Link href="/search" style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               fontSize: 14, fontWeight: 700, color: "#FF5A1F", textDecoration: "none", transition: "gap 0.2s",
             }}
               onMouseEnter={e => (e.currentTarget.style.gap = "12px")}
               onMouseLeave={e => (e.currentTarget.style.gap = "6px")}>
               View All Properties <ArrowRight size={15} />
-            </a>
+            </Link>
           </div>
         </div>
       </section>
 
       {/* 3 STEPS */}
-      <section style={{
+      <section id="how-it-works" style={{ scrollMarginTop: 64,
         background: "linear-gradient(140deg, #050D1A 0%, #0B1829 100%)",
         padding: "80px 0", position: "relative", overflow: "hidden",
       }}>
@@ -360,25 +308,33 @@ export default function HomePage() {
             <h2 style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-1px", marginBottom: 12 }}>Find Your Home in 3 Steps</h2>
             <p style={{ fontSize: 14, color: "rgba(255,255,255,0.42)", maxWidth: 380, margin: "0 auto" }}>Simple, fast and transparent — from first search to keys in hand.</p>
           </div>
-          <div style={{ display: "flex", gap: 20 }}>
-            <StepCard num="1" icon={<Search size={20} />} title="Search" desc="Enter your city, budget, and preferences. Our engine searches 1,200+ listings instantly across 15 cities." />
+          <div className="vc-stack-mobile" style={{ display: "flex", gap: 20 }}>
+            <StepCard num="1" icon={<Search size={20} />} title="Search" desc={`Enter your city, budget, and preferences. Our engine searches ${listingsCount} listings instantly across ${cities} cities.`} />
             <StepCard num="2" icon={<TrendingUp size={20} />} title="Compare" desc="Compare properties side by side using AI value scores, price per m², and market position indicators." />
-            <StepCard num="3" icon={<Shield size={20} />} title="Secure" desc="Connect with verified agents directly and move forward with full confidence. Your dream home awaits." />
+            <StepCard num="3" icon={<Heart size={20} />} title="Save" desc="Create a free account to save favourites, pick your default currency and track asking-price changes." />
           </div>
         </div>
       </section>
 
-      {/* TESTIMONIALS + CTA */}
+      {/* BAKU DISTRICTS + CTA */}
       <section style={{ background: "linear-gradient(140deg, #060E1C 0%, #0B1829 100%)", padding: "80px 0" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 48px" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <h2 style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-1px", marginBottom: 12 }}>Success Stories</h2>
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.38)" }}>Real people. Real homes. Real results.</p>
+          <div style={{ textAlign: "center", marginBottom: 36 }}>
+            <h2 style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-1px", marginBottom: 12 }}>Baku by District</h2>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.38)" }}>Median sale price per m² — click a district to see its listings.</p>
           </div>
-          <div style={{ display: "flex", gap: 20, marginBottom: 56 }}>
-            <TestiCard initials="AK" name="Amir K." location="Berlin, Germany" quote="Found our dream apartment in Prenzlauer Berg within a week. The value score saved us from overpaying by €40,000." />
-            <TestiCard initials="MS" name="Maya S." location="Dubai, UAE" quote="Relocated from London to Dubai. VeloCite made comparing neighborhoods incredibly easy. We closed in 3 weeks." />
-            <TestiCard initials="YT" name="Yuki T." location="Tokyo, Japan" quote="The currency conversion and AI value scoring together are a game changer for international property hunting." />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 56 }}>
+            {bakuDistricts.map(d => (
+              <Link key={d.district} href={`/search?city=Baku&district=${encodeURIComponent(d.district)}`} style={{
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14,
+                padding: "16px 18px", textDecoration: "none", display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <span style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{d.district}</span>
+                <span style={{ color: "#FF8C52", fontWeight: 700, fontSize: 13 }}>
+                  {d.median_sale_price_sqm != null ? `${formatMoney(d.median_sale_price_sqm, markets?.currency ?? "AZN")}/m²` : "—"}
+                </span>
+              </Link>
+            ))}
           </div>
           <div style={{
             background: "linear-gradient(135deg, #FF5A1F 0%, #1a3a5c 100%)",
@@ -389,11 +345,11 @@ export default function HomePage() {
             <div>
               <h3 style={{ fontSize: 30, fontWeight: 800, color: "#fff", letterSpacing: "-0.8px", marginBottom: 10 }}>Ready to Find Your Home?</h3>
               <p style={{ fontSize: 14, color: "rgba(255,255,255,0.68)", maxWidth: 420, lineHeight: 1.65 }}>
-                Join thousands of buyers and renters who found their perfect property with VeloCite's AI-powered search.
+                Create a free account to save listings, pick your currency and come back to them any time.
               </p>
             </div>
             <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
-              <a href="/search" style={{
+              <Link href="/search" style={{
                 background: "#fff", color: "#FF5A1F", textDecoration: "none",
                 borderRadius: 12, padding: "14px 28px", fontSize: 14, fontWeight: 800,
                 transition: "transform 0.2s",
@@ -401,75 +357,49 @@ export default function HomePage() {
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.transform = "scale(1)"}>
                 Browse Properties
-              </a>
-              <button style={{
-                background: "rgba(255,255,255,0.12)", color: "#fff",
+              </Link>
+              <Link href="/login?mode=register" style={{
+                background: "rgba(255,255,255,0.12)", color: "#fff", textDecoration: "none",
                 border: "1px solid rgba(255,255,255,0.25)", borderRadius: 12,
                 padding: "14px 28px", fontSize: 14, fontWeight: 500, cursor: "pointer",
                 backdropFilter: "blur(8px)",
               }}
                 onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}>
-                Get Support
-              </button>
+                Create Free Account
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer style={{ background: "#050D1A", padding: "52px 48px 28px" }}>
+      <footer className="vc-pad" style={{ background: "#050D1A", padding: "52px 48px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 44 }}>
+          <div className="vc-two-col" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 44 }}>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 16 }}>
-                <div style={{
-                  width: 30, height: 30, borderRadius: 8,
-                  background: "linear-gradient(135deg, #FF5A1F, #FF8C00)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "#fff", fontWeight: 800, fontSize: 14,
-                }}>V</div>
-                <span style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>Velo<span style={{ color: "#FF5A1F" }}>Cite</span></span>
-              </div>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", lineHeight: 1.75, maxWidth: 230, marginBottom: 22 }}>
-                Global real estate search powered by AI value scoring and real-time currency conversion.
+              <div style={{ marginBottom: 16 }}><Logo size={30} /></div>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", lineHeight: 1.75, maxWidth: 260 }}>
+                Real estate search for Azerbaijan with value scoring, market analytics and prices in manat.
               </p>
-              <div style={{ display: "flex", gap: 10 }}>
-                {[Facebook, Twitter, Linkedin].map((Icon, i) => (
-                  <div key={i} style={{
-                    width: 34, height: 34, borderRadius: 9,
-                    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", color: "rgba(255,255,255,0.38)", transition: "all 0.2s",
-                  }}
-                    onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(255,90,31,0.2)"; el.style.color = "#FF5A1F"; el.style.borderColor = "rgba(255,90,31,0.3)"; }}
-                    onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(255,255,255,0.06)"; el.style.color = "rgba(255,255,255,0.38)"; el.style.borderColor = "rgba(255,255,255,0.08)"; }}>
-                    <Icon size={14} />
-                  </div>
-                ))}
-              </div>
             </div>
             {[
-              { title: "Explore", links: ["Search Properties", "Map View", "New Listings", "Price Trends"] },
-              { title: "Locations", links: ["Berlin", "Dubai", "Tokyo", "New York", "Barcelona"] },
-              { title: "Company", links: ["About Us", "Blog", "Careers", "Contact"] },
+              { title: "Explore", links: [["Search Properties", "/search"], ["Map View", "/search?view=map"], ["Newest Listings", "/search?sort=newest"], ["Rentals", "/search?listing_type=rent"]] },
+              { title: "Locations", links: ["Baku", "Sumgait", "Ganja", "Gabala", "Lankaran"].map(c => [c, `/search?city=${encodeURIComponent(c)}`]) },
+              { title: "Account", links: [["Sign In", "/login"], ["Create Account", "/login?mode=register"], ["Saved Listings", "/favorites"], ["How It Works", "/#how-it-works"]] },
             ].map(col => (
               <div key={col.title}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.22)", letterSpacing: "1.4px", textTransform: "uppercase", marginBottom: 18 }}>{col.title}</div>
-                {col.links.map(link => (
-                  <div key={link} style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", marginBottom: 11, cursor: "pointer", transition: "color 0.2s" }}
+                {col.links.map(([label, href]) => (
+                  <Link key={label} href={href} style={{ display: "block", fontSize: 13, color: "rgba(255,255,255,0.42)", marginBottom: 11, textDecoration: "none", transition: "color 0.2s" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.42)")}>{link}</div>
+                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.42)")}>{label}</Link>
                 ))}
               </div>
             ))}
           </div>
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>© 2026 VeloCite. All rights reserved.</span>
-            <div style={{ display: "flex", gap: 24, fontSize: 12, color: "rgba(255,255,255,0.2)" }}>
-              <span style={{ cursor: "pointer" }}>Privacy Policy</span>
-              <span style={{ cursor: "pointer" }}>Terms of Service</span>
-            </div>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>© 2026 VeloCite. Demo listings are generated from typical market prices in Azerbaijan.</span>
           </div>
         </div>
       </footer>

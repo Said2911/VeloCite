@@ -212,3 +212,11 @@ def test_no_market_summary_without_results(offline_fx):
     res = _search(conn)
     assert res.market_summary is None
     assert len(conn.queries) == 2  # no stats query when nothing matched
+
+
+def test_district_filter_and_azn_default():
+    params = SearchParams(city="Baku", district="Nəsimi")
+    assert params.currency == "AZN"
+    where, args = build_where(params, None, None)
+    assert "district ILIKE $3" in where
+    assert args[2] == "%Nəsimi%"

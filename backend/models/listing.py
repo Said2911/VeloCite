@@ -17,6 +17,7 @@ class SearchParams(BaseModel):
     # Location
     country_code: Optional[str] = Field(None, min_length=2, max_length=2)
     city: Optional[str] = Field(None, max_length=100)
+    district: Optional[str] = Field(None, max_length=100)
     lat: Optional[float] = Field(None, ge=-90, le=90)
     lng: Optional[float] = Field(None, ge=-180, le=180)
     radius_km: Optional[float] = Field(None, ge=0.1, le=500)
@@ -31,7 +32,7 @@ class SearchParams(BaseModel):
     bedrooms: Optional[int] = Field(None, ge=0, le=20)
 
     # Display
-    currency: str = Field("USD", min_length=3, max_length=3)
+    currency: str = Field("AZN", min_length=3, max_length=3)
     sort: SortOption = "value"
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100)

@@ -63,6 +63,8 @@ def build_where(
         add("country_code = {}", params.country_code.upper())
     if params.city:
         add("city ILIKE {}", f"%{params.city.strip()}%")
+    if params.district:
+        add("district ILIKE {}", f"%{params.district.strip()}%")
     if params.property_type:
         add("property_type = {}", params.property_type)
     if min_price_usd is not None:

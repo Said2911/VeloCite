@@ -31,6 +31,7 @@ def _check_currency(currency: str) -> str:
 async def search_listings(
     country_code: Optional[str] = Query(None, min_length=2, max_length=2),
     city: Optional[str] = Query(None, max_length=100),
+    district: Optional[str] = Query(None, max_length=100),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
     radius_km: Optional[float] = Query(None, ge=0.1, le=500),
@@ -41,7 +42,7 @@ async def search_listings(
     min_area: Optional[float] = Query(None, ge=0),
     max_area: Optional[float] = Query(None, ge=0),
     bedrooms: Optional[int] = Query(None, ge=0, le=20),
-    currency: str = Query("USD", min_length=3, max_length=3),
+    currency: str = Query("AZN", min_length=3, max_length=3),
     sort: SortOption = Query("value"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -53,7 +54,7 @@ async def search_listings(
         raise HTTPException(status_code=422, detail="min_area must not exceed max_area")
 
     params = SearchParams(
-        country_code=country_code, city=city, lat=lat, lng=lng,
+        country_code=country_code, city=city, district=district, lat=lat, lng=lng,
         radius_km=radius_km, property_type=property_type,
         listing_type=listing_type, min_price=min_price, max_price=max_price,
         min_area=min_area, max_area=max_area, bedrooms=bedrooms,

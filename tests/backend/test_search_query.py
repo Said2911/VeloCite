@@ -10,7 +10,7 @@ import pytest
 from backend.cache import Cache
 from backend.models.listing import SearchParams
 from backend.services.currency import FALLBACK_RATES
-from backend.services.search import SearchService, build_where, row_to_listing
+from backend.services.search import SearchService, build_where, market_summary_from_rows, row_to_listing
 
 
 # ─── build_where / row_to_listing ─────────────────────────────────────────────
@@ -176,3 +176,39 @@ def test_results_are_cached(offline_fx):
     second = asyncio.run(service.search(SearchParams()))
     assert len(conn.queries) == calls
     assert first == second
+
+
+# ─── Market summary (Pandas) ──────────────────────────────────────────────────
+
+def test_market_summary_from_rows_converts_currency():
+    rows = [{"price_per_sqm": Decimal(p), "bedrooms": b}
+            for p, b in [(1000, 1), (1500, 2), (2000, 2), (2500, 3), (3000, 3)]]
+    summary = market_summary_from_rows(rows, 1.7, "AZN")
+    assert summary.currency == "AZN"
+    assert summary.median_price_sqm == 3400.0           # 2000 USD × 1.7
+    assert summary.listings_analyzed == 5
+    assert summary.bedroom_breakdown == {"1": 1700.0, "2": 2975.0, "3": 4675.0}
+    d = summary.price_distribution
+    assert d["p10"] <= d["p25"] <= d["p50"] <= d["p75"] <= d["p90"]
+
+
+def test_market_summary_needs_three_listings():
+    assert market_summary_from_rows([{"price_per_sqm": 1000, "bedrooms": 1}] * 2, 1.0, "USD") is None
+
+
+def test_search_attaches_market_summary_for_whole_result_set(offline_fx):
+    conn = FakeConn([_row(i, 5.0) for i in range(5)], total=5)
+    res = _search(conn, currency="AZN", page_size=2)
+    stats_sql = conn.queries[2]
+    assert stats_sql.startswith("SELECT price_per_sqm, bedrooms FROM listings WHERE")
+    assert "OFFSET" not in stats_sql
+    assert res.market_summary is not None
+    assert res.market_summary.currency == "AZN"
+    assert res.market_summary.median_price_sqm == round(1250 * FALLBACK_RATES["AZN"], 2)
+
+
+def test_no_market_summary_without_results(offline_fx):
+    conn = FakeConn([], total=0)
+    res = _search(conn)
+    assert res.market_summary is None
+    assert len(conn.queries) == 2  # no stats query when nothing matched

@@ -3,6 +3,9 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
+export type SortOption =
+  | "relevance" | "value" | "price_asc" | "price_desc" | "newest" | "area_desc" | "ppsqm_asc";
+
 export interface SearchParams {
   city?: string;
   country_code?: string;
@@ -17,6 +20,7 @@ export interface SearchParams {
   max_area?: number;
   bedrooms?: number;
   currency?: string;
+  sort?: SortOption;
   page?: number;
   page_size?: number;
 }
@@ -40,12 +44,14 @@ export interface Listing {
   price_display: number;
   price_per_sqm_display?: number;
   currency: string;
+  currency_symbol: string;
   value_score: number;
   market_position: string;
   listed_at: string;
 }
 
 export interface MarketSummary {
+  currency: string;
   median_price_sqm: number;
   avg_price_sqm: number;
   listings_analyzed: number;
@@ -58,6 +64,8 @@ export interface SearchResponse {
   total: number;
   page: number;
   page_size: number;
+  total_pages: number;
+  sort: SortOption;
   market_summary?: MarketSummary;
 }
 

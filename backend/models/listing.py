@@ -76,13 +76,14 @@ class ListingResponse(BaseModel):
 
 
 class MarketSummary(BaseModel):
-    """Market statistics for a city/property type segment."""
+    """Price-per-m² statistics for a set of listings (in the display currency)."""
 
+    currency: str
     median_price_sqm: float
     avg_price_sqm: float
     listings_analyzed: int
-    price_distribution: dict
-    bedroom_breakdown: dict
+    price_distribution: dict[str, float]   # p10 … p90
+    bedroom_breakdown: dict[str, float]    # bedrooms → median price/m²
 
 
 class SearchResponse(BaseModel):

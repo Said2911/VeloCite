@@ -1,13 +1,16 @@
 # backend/services/search.py
-# Core search logic — connects DB, ranking engine and currency service
+# Core search logic — connects DB, ranking engine, analytics and currency service
 
 import hashlib
 import math
 from decimal import Decimal
 from typing import Any, Optional
 
+import pandas as pd
+
+from analytics.market_analyzer import build_market_report
 from backend.config import settings
-from backend.models.listing import SearchParams, SearchResponse
+from backend.models.listing import MarketSummary, SearchParams, SearchResponse
 from backend.services import ranking
 from backend.services.currency import CurrencyService
 
@@ -96,6 +99,24 @@ def row_to_listing(row: Any, rate: float, currency: str, symbol: str) -> dict:
     return listing
 
 
+def market_summary_from_rows(rows: list, rate: float, currency: str) -> Optional[MarketSummary]:
+    """Run the Pandas market report and convert it to the display currency."""
+    if len(rows) < 3:
+        return None
+    df = pd.DataFrame([{k: _num(v) for k, v in dict(r).items()} for r in rows])
+    report = build_market_report(df)
+    if not report:
+        return None
+    return MarketSummary(
+        currency=currency,
+        median_price_sqm=round(report["median_price_sqm"] * rate, 2),
+        avg_price_sqm=round(report["avg_price_sqm"] * rate, 2),
+        listings_analyzed=report["listings_analyzed"],
+        price_distribution={k: round(v * rate, 2) for k, v in report["price_distribution"].items()},
+        bedroom_breakdown={k: round(v * rate, 2) for k, v in report["bedroom_breakdown"].items()},
+    )
+
+
 class SearchService:
 
     def __init__(self, db_pool, cache):
@@ -104,7 +125,7 @@ class SearchService:
         self.fx = CurrencyService(cache)
 
     async def search(self, params: SearchParams) -> SearchResponse:
-        """Query DB (filter, sort, paginate), rank if asked, convert currency."""
+        """Query DB (filter, sort, paginate), rank, add market summary, convert currency."""
         params = params.model_copy(update={"currency": params.currency.upper()})
 
         cache_key = SEARCH_CACHE_PREFIX + hashlib.md5(params.model_dump_json().encode()).hexdigest()
@@ -143,6 +164,13 @@ class SearchService:
                     *args,
                 )
 
+            # Market context for the whole result set, not just this page
+            stats_rows = await conn.fetch(
+                f"SELECT price_per_sqm, bedrooms FROM listings WHERE {where} "
+                f"AND price_per_sqm IS NOT NULL LIMIT 5000",
+                *args,
+            ) if total else []
+
         response = SearchResponse(
             listings=[row_to_listing(r, rate, params.currency, symbol) for r in page_rows],
             total=total,
@@ -150,7 +178,7 @@ class SearchService:
             page_size=params.page_size,
             total_pages=math.ceil(total / params.page_size),
             sort=params.sort,
-            market_summary=None,
+            market_summary=market_summary_from_rows(stats_rows, rate, params.currency),
         )
 
         await self.cache.setex(cache_key, settings.SEARCH_CACHE_TTL, response.model_dump_json())

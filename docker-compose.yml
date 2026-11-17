@@ -79,11 +79,13 @@ services:
       - api
       - frontend
 
+  # ── Scraper (optional, experimental: docker compose --profile scrapers up) ──
   scraper:
     build:
       context: .
       dockerfile: docker/scraper.Dockerfile
     container_name: velocite_scraper
+    profiles: ["scrapers"]
     environment:
       DATABASE_URL: postgresql://velocite:velocite123@postgres:5432/velocite
     depends_on:

@@ -24,7 +24,7 @@ LISTING_COLUMNS = """
     price_usd, area_sqm, price_per_sqm,
     bedrooms, bathrooms, floor, year_built,
     value_score, market_position,
-    source, listed_at
+    source, url, description, listed_at
 """
 
 SORT_SQL = {

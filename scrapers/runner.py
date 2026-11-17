@@ -4,11 +4,11 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncpg
 
-from scrapers.immowelt_scraper import ImmoweltScraper
-from scrapers.bayut_scraper import BayutScraper
+from analytics.scoring import recompute_all_scores
+from scrapers.bina_az_scraper import BinaAzScraper
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,13 +23,12 @@ DATABASE_URL = os.getenv(
 
 # Which cities each scraper should cover
 SCRAPER_CITIES = {
-    ImmoweltScraper: ["Berlin", "Munich", "Hamburg", "Frankfurt", "Vienna"],
-    BayutScraper:    ["Dubai", "Abu Dhabi"],
+    BinaAzScraper: ["Baku", "Sumgait", "Ganja"],
 }
 
 
 async def run_all_scrapers():
-    logger.info(f"🚀 Scraper run started at {datetime.utcnow().isoformat()}")
+    logger.info(f"🚀 Scraper run started at {datetime.now(timezone.utc).isoformat()}")
 
     db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=5)
 
@@ -41,6 +40,12 @@ async def run_all_scrapers():
 
         for key in total_stats:
             total_stats[key] += stats.get(key, 0)
+
+    # New listings need value scores relative to their market
+    try:
+        await recompute_all_scores(db_pool)
+    except Exception as e:
+        logger.error(f"Score recompute failed: {e}")
 
     await db_pool.close()
 

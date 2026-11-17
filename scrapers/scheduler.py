@@ -17,8 +17,9 @@ async def main():
     await run_all_scrapers()
 
     # Then every 6 hours
+    # AsyncIOScheduler awaits coroutine functions on the running loop
     scheduler.add_job(
-        lambda: asyncio.create_task(run_all_scrapers()),
+        run_all_scrapers,
         "interval",
         hours=6,
         id="scraper_job"

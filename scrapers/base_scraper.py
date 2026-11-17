@@ -1,15 +1,18 @@
 # scrapers/base_scraper.py
 # Base class for all VeloCite scrapers
 
+from __future__ import annotations
+
 import asyncio
-import hashlib
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
 import httpx
-import asyncpg
+
+if TYPE_CHECKING:  # only needed for type hints
+    import asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +102,11 @@ class BaseScraper(ABC):
                     self.stats["skipped"] += 1
                     return
 
+                if listing.lat is None or listing.lng is None:
+                    # location is NOT NULL — listings without coordinates are skipped
+                    self.stats["skipped"] += 1
+                    return
+
                 # Convert price to USD
                 price_usd = await self._convert_to_usd(
                     listing.price, listing.currency
@@ -109,23 +117,22 @@ class BaseScraper(ABC):
                         external_id, source, country_code, city, district,
                         address, property_type, listing_type,
                         price_usd, area_sqm, bedrooms, bathrooms,
-                        floor, year_built, url, is_active, listed_at,
+                        floor, year_built, url, description, is_active, listed_at,
                         location
                     ) VALUES (
                         $1, $2, $3, $4, $5, $6, $7, $8,
-                        $9, $10, $11, $12, $13, $14, $15,
+                        $9, $10, $11, $12, $13, $14, $15, $16,
                         TRUE, NOW(),
-                        CASE WHEN $16 IS NOT NULL AND $17 IS NOT NULL
-                             THEN ST_MakePoint($17, $16)::geography
-                             ELSE NULL END
+                        ST_MakePoint($18, $17)::geography
                     )
+                    ON CONFLICT (external_id) DO NOTHING
                 """,
                     listing.external_id, listing.source,
                     listing.country_code, listing.city, listing.district,
-                    listing.address, listing.property_type, listing.listing_type,
+                    listing.address, self.normalize_property_type(listing.property_type), listing.listing_type,
                     price_usd, listing.area_sqm, listing.bedrooms,
                     listing.bathrooms, listing.floor, listing.year_built,
-                    listing.url, listing.lat, listing.lng
+                    listing.url, listing.description, listing.lat, listing.lng
                 )
                 self.stats["inserted"] += 1
 
@@ -140,6 +147,7 @@ class BaseScraper(ABC):
 
         # Fallback rates (updated periodically)
         RATES_TO_USD = {
+            "AZN": 1 / 1.70,  # pegged
             "EUR": 1.08, "GBP": 1.27, "AED": 0.272,
             "JPY": 0.0067, "CHF": 1.13, "AUD": 0.65,
             "CAD": 0.74, "SGD": 0.74, "INR": 0.012,
@@ -147,6 +155,24 @@ class BaseScraper(ABC):
         }
         rate = RATES_TO_USD.get(currency, 1.0)
         return round(price * rate, 2)
+
+    @staticmethod
+    def normalize_property_type(raw: Optional[str]) -> str:
+        """Map source-specific categories onto the DB's allowed values."""
+        value = (raw or "").strip().lower()
+        if value in ("apartment", "house", "villa", "land", "commercial"):
+            return value
+        if value in ("flat", "penthouse", "studio", "duplex", "mənzil", "yeni tikili", "köhnə tikili"):
+            return "apartment"
+        if value in ("townhouse", "həyət evi", "ev"):
+            return "house"
+        if value in ("bağ evi", "villa"):
+            return "villa"
+        if value in ("plot", "torpaq"):
+            return "land"
+        if value in ("office", "shop", "obyekt", "ofis"):
+            return "commercial"
+        return "apartment"
 
     def _make_external_id(self, source: str, raw_id: str) -> str:
         """Create consistent external ID."""

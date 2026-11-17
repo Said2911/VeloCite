@@ -72,6 +72,8 @@ class ListingResponse(BaseModel):
 
     # Metadata
     source: Optional[str] = None
+    url: Optional[str] = None
+    description: Optional[str] = None
     listed_at: Optional[datetime] = None
 
 

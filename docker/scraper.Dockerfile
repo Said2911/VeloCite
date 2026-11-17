@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir apscheduler
 
 COPY scrapers/ ./scrapers/
+COPY analytics/ ./analytics/
 COPY backend/ ./backend/
 
-CMD ["python", "-m", "scrapers.runner"]
+CMD ["python", "-m", "scrapers.scheduler"]

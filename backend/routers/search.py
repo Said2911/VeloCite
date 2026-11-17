@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/v1", tags=["search"])
 
 
 def get_search_service(request: Request) -> SearchService:
-    return SearchService(request.app.state.db_pool, request.app.state.redis_client)
+    return SearchService(request.app.state.db_pool, request.app.state.cache)
 
 
 @router.get("/search", response_model=SearchResponse)

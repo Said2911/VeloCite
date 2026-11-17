@@ -5,20 +5,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncpg
-import redis.asyncio as aioredis
 
+from backend.cache import create_cache
 from backend.config import settings
 from backend.db import run_migrations
 
 # ─── Database & Cache connections ─────────────────────────────────────────────
 db_pool: asyncpg.Pool = None
-redis_client = None
+cache = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup connections on startup/shutdown."""
-    global db_pool, redis_client
+    global db_pool, cache
 
     # Connect to PostgreSQL
     db_pool = await asyncpg.create_pool(
@@ -27,14 +27,11 @@ async def lifespan(app: FastAPI):
         max_size=20
     )
 
-    # Connect to Redis
-    redis_client = aioredis.from_url(
-        settings.REDIS_URL,
-        decode_responses=True
-    )
+    # Redis if available, otherwise in-memory cache
+    cache = await create_cache(settings.REDIS_URL)
 
     app.state.db_pool = db_pool
-    app.state.redis_client = redis_client
+    app.state.cache = cache
 
     # Apply SQL migrations (idempotent, safe on every startup)
     failed = await run_migrations(db_pool, settings.MIGRATIONS_DIR)
@@ -45,13 +42,13 @@ async def lifespan(app: FastAPI):
 
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} started")
     print(f"✅ Database connected")
-    print(f"✅ Redis connected")
+    print(f"✅ Cache: {cache.backend}")
 
     yield  # App runs here
 
     # Cleanup on shutdown
     await db_pool.close()
-    await redis_client.close()
+    await cache.close()
     print("👋 VeloCite API shutdown complete")
 
 

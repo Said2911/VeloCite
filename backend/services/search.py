@@ -6,7 +6,6 @@ import json
 from typing import Optional
 
 import asyncpg
-import redis.asyncio as aioredis
 
 from backend.config import settings
 from backend.models.listing import SearchParams, SearchResponse
@@ -23,17 +22,17 @@ except ImportError:
 
 class SearchService:
 
-    def __init__(self, db_pool: asyncpg.Pool, redis_client: aioredis.Redis):
+    def __init__(self, db_pool: asyncpg.Pool, cache):
         self.db = db_pool
-        self.redis = redis_client
-        self.fx = CurrencyService(redis_client)
+        self.cache = cache  # backend.cache.Cache (Redis or in-memory)
+        self.fx = CurrencyService(cache)
 
     async def search(self, params: SearchParams) -> SearchResponse:
         """Main search method — query DB, rank with C++, convert currency."""
 
         # ── Cache check ───────────────────────────────────────────────────────
         cache_key = f"search:{hashlib.md5(params.model_dump_json().encode()).hexdigest()}"
-        cached = await self.redis.get(cache_key)
+        cached = await self.cache.get(cache_key)
         if cached:
             return SearchResponse(**json.loads(cached))
 
@@ -157,7 +156,7 @@ class SearchService:
         )
 
         # Cache for 5 minutes
-        await self.redis.setex(
+        await self.cache.setex(
             cache_key, 300,
             response.model_dump_json()
         )

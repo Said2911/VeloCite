@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/velocite"
     MIGRATIONS_DIR: str = str(REPO_ROOT / "database" / "migrations")
 
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379"
+    # Redis (optional — an in-memory cache is used if Redis is unreachable)
+    REDIS_URL: Optional[str] = "redis://localhost:6379"
 
     # Currency API
     EXCHANGE_RATE_API_URL: str = "https://api.exchangerate-api.com/v4/latest/USD"

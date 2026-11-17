@@ -8,6 +8,7 @@ import asyncpg
 import redis.asyncio as aioredis
 
 from backend.config import settings
+from backend.db import run_migrations
 
 # ─── Database & Cache connections ─────────────────────────────────────────────
 db_pool: asyncpg.Pool = None
@@ -35,18 +36,12 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = db_pool
     app.state.redis_client = redis_client
 
-    # Run migrations via SQL
-    import glob
-    migration_files = sorted(glob.glob("/app/database/migrations/*.sql"))
-    async with db_pool.acquire() as conn:
-        for f in migration_files:
-            sql = open(f).read()
-            try:
-                await conn.execute(sql)
-            except Exception as e:
-                print(f"Migration {f}: {e}")
-    
-    print("✅ Migrations applied")
+    # Apply SQL migrations (idempotent, safe on every startup)
+    failed = await run_migrations(db_pool, settings.MIGRATIONS_DIR)
+    if failed:
+        print(f"⚠️ Migrations failed: {', '.join(failed)} — is PostGIS installed?")
+    else:
+        print("✅ Migrations applied")
 
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} started")
     print(f"✅ Database connected")

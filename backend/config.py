@@ -1,8 +1,12 @@
 # backend/config.py
 # Central configuration — all settings loaded from .env file
 
-from pydantic_settings import BaseSettings
+from pathlib import Path
 from typing import Optional
+
+from pydantic_settings import BaseSettings
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -13,6 +17,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/velocite"
+    MIGRATIONS_DIR: str = str(REPO_ROOT / "database" / "migrations")
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379"

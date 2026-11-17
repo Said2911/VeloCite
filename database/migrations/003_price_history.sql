@@ -1,7 +1,7 @@
 -- Migration: 003_price_history
 -- Description: Price history tracking for market trend analysis
 
-CREATE TABLE price_history (
+CREATE TABLE IF NOT EXISTS price_history (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     listing_id      UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
     recorded_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -11,9 +11,9 @@ CREATE TABLE price_history (
 );
 
 -- Index for trend queries (listing + time range)
-CREATE INDEX idx_price_history_listing
+CREATE INDEX IF NOT EXISTS idx_price_history_listing
     ON price_history (listing_id, recorded_at DESC);
 
 -- Index for market-wide time queries
-CREATE INDEX idx_price_history_time
+CREATE INDEX IF NOT EXISTS idx_price_history_time
     ON price_history (recorded_at DESC);

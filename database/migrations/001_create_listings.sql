@@ -4,7 +4,7 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TABLE listings (
+CREATE TABLE IF NOT EXISTS listings (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     external_id     VARCHAR(255) UNIQUE,
 

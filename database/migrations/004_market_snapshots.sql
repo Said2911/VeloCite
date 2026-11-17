@@ -1,7 +1,7 @@
 -- Migration: 004_market_snapshots
 -- Description: Aggregated market data computed by Pandas analytics engine
 
-CREATE TABLE market_snapshots (
+CREATE TABLE IF NOT EXISTS market_snapshots (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     country_code    CHAR(2) NOT NULL,
     city            VARCHAR(100) NOT NULL,
@@ -24,5 +24,5 @@ CREATE TABLE market_snapshots (
 );
 
 -- Index for fast market comparison queries
-CREATE INDEX idx_snapshots_market
+CREATE INDEX IF NOT EXISTS idx_snapshots_market
     ON market_snapshots (country_code, city, property_type, snapshot_date DESC);

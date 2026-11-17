@@ -1,19 +1,25 @@
 // lib/api.ts
-// Functions for communicating with the VeloCite FastAPI backend
+// Typed client for the VeloCite FastAPI backend
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001").replace(/\/$/, "");
 
-export type SortOption =
-  | "relevance" | "value" | "price_asc" | "price_desc" | "newest" | "area_desc" | "ppsqm_asc";
+const TOKEN_KEY = "velocite_token";
+
+export const DEFAULT_CURRENCY = "AZN";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type SortOption = "relevance" | "value" | "price_asc" | "price_desc" | "newest" | "area_desc" | "ppsqm_asc";
 
 export interface SearchParams {
   city?: string;
+  district?: string;
   country_code?: string;
   lat?: number;
   lng?: number;
   radius_km?: number;
   property_type?: string;
-  listing_type?: string;
+  listing_type?: "sale" | "rent";
   min_price?: number;
   max_price?: number;
   min_area?: number;
@@ -29,25 +35,28 @@ export interface Listing {
   id: string;
   country_code: string;
   city: string;
-  district?: string;
-  address?: string;
-  lat: number;
-  lng: number;
+  district?: string | null;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   property_type: string;
-  listing_type: string;
-  area_sqm?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  floor?: number;
-  year_built?: number;
+  listing_type: "sale" | "rent";
+  area_sqm?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  floor?: number | null;
+  year_built?: number | null;
   price_usd: number;
   price_display: number;
-  price_per_sqm_display?: number;
+  price_per_sqm_display?: number | null;
   currency: string;
   currency_symbol: string;
-  value_score: number;
-  market_position: string;
-  listed_at: string;
+  value_score?: number | null;
+  market_position?: string | null;
+  source?: string | null;
+  url?: string | null;
+  description?: string | null;
+  listed_at?: string | null;
 }
 
 export interface MarketSummary {
@@ -66,28 +75,195 @@ export interface SearchResponse {
   page_size: number;
   total_pages: number;
   sort: SortOption;
-  market_summary?: MarketSummary;
+  market_summary?: MarketSummary | null;
 }
 
-export async function searchListings(params: SearchParams): Promise<SearchResponse> {
-  const query = new URLSearchParams();
+export interface PricePoint {
+  date: string;
+  price_display: number;
+}
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query.append(key, String(value));
-    }
-  });
+export interface ListingDetail {
+  listing: Listing;
+  segment: "district" | "city";
+  percentile?: number | null;
+  market?: MarketSummary | null;
+  comparables: Listing[];
+  price_history: PricePoint[];
+}
 
-  const response = await fetch(`${API_BASE}/api/v1/search?${query}`);
+export interface DistrictOverview {
+  district: string;
+  listings: number;
+  median_sale_price_sqm?: number | null;
+  median_rent_price_sqm?: number | null;
+}
 
-  if (!response.ok) {
-    throw new Error(`Search failed: ${response.statusText}`);
+export interface MarketOverview {
+  country_code: string;
+  city: string;
+  lat?: number | null;
+  lng?: number | null;
+  listings: number;
+  sale_listings: number;
+  rent_listings: number;
+  median_sale_price_sqm?: number | null;
+  median_rent_price_sqm?: number | null;
+  avg_value_score?: number | null;
+  price_trend_30d?: number | null;
+  currency: string;
+  districts: DistrictOverview[];
+}
+
+export interface MarketsResponse {
+  total_listings: number;
+  total_cities: number;
+  total_districts: number;
+  currency: string;
+  markets: MarketOverview[];
+}
+
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  preferred_currency: string;
+  created_at?: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+// ─── Token storage ────────────────────────────────────────────────────────────
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (token) window.localStorage.setItem(TOKEN_KEY, token);
+    else window.localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* storage unavailable (private mode) — session-only login */
+  }
+}
+
+// ─── Request helper ───────────────────────────────────────────────────────────
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}, auth = false): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (auth) {
+    const token = getToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
-  return response.json();
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  } catch {
+    throw new ApiError(0, "Cannot reach the VeloCite API. Is the backend running?");
+  }
+
+  if (!response.ok) {
+    let message = response.statusText || "Request failed";
+    try {
+      const body = await response.json();
+      if (typeof body.detail === "string") message = body.detail;
+      else if (Array.isArray(body.detail) && body.detail[0]?.msg) message = body.detail[0].msg;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new ApiError(response.status, message);
+  }
+
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
 }
 
-export async function getCurrencies(): Promise<Record<string, string>> {
-  const response = await fetch(`${API_BASE}/api/v1/currencies`);
-  return response.json();
+function toQuery(params: object): string {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.append(key, String(value));
+  });
+  const s = query.toString();
+  return s ? `?${s}` : "";
+}
+
+// ─── Listings ─────────────────────────────────────────────────────────────────
+
+export function searchListings(params: SearchParams): Promise<SearchResponse> {
+  return request<SearchResponse>(`/api/v1/search${toQuery(params)}`);
+}
+
+export function getListing(id: string, currency = DEFAULT_CURRENCY): Promise<ListingDetail> {
+  return request<ListingDetail>(`/api/v1/listings/${encodeURIComponent(id)}${toQuery({ currency })}`);
+}
+
+export function getMarkets(currency = DEFAULT_CURRENCY): Promise<MarketsResponse> {
+  return request<MarketsResponse>(`/api/v1/markets${toQuery({ currency })}`);
+}
+
+export function getCurrencies(): Promise<Record<string, string>> {
+  return request<Record<string, string>>("/api/v1/currencies");
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export function register(email: string, password: string, full_name?: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, full_name: full_name || null }),
+  });
+}
+
+export function login(email: string, password: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function getMe(): Promise<User> {
+  return request<User>("/api/v1/auth/me", {}, true);
+}
+
+export function updateMe(data: { full_name?: string; preferred_currency?: string }): Promise<User> {
+  return request<User>("/api/v1/auth/me", { method: "PATCH", body: JSON.stringify(data) }, true);
+}
+
+// ─── Favorites ────────────────────────────────────────────────────────────────
+
+export function getFavorites(currency = DEFAULT_CURRENCY): Promise<Listing[]> {
+  return request<Listing[]>(`/api/v1/favorites${toQuery({ currency })}`, {}, true);
+}
+
+export function getFavoriteIds(): Promise<string[]> {
+  return request<string[]>("/api/v1/favorites/ids", {}, true);
+}
+
+export function addFavorite(id: string): Promise<void> {
+  return request<void>(`/api/v1/favorites/${encodeURIComponent(id)}`, { method: "PUT" }, true);
+}
+
+export function removeFavorite(id: string): Promise<void> {
+  return request<void>(`/api/v1/favorites/${encodeURIComponent(id)}`, { method: "DELETE" }, true);
 }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
   --navy: #0B1829;
@@ -22,10 +22,65 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   background: var(--white);
   color: var(--navy);
   -webkit-font-smoothing: antialiased;
 }
 
-.display { font-family: 'Cormorant Garamond', serif; }
+/* ─── Shared UI (navbar, cards, forms) ─────────────────────────────────── */
+.vc-navlink { color: rgba(255,255,255,0.6); text-decoration: none; transition: color 0.2s; font-size: 14px; }
+.vc-navlink:hover, .vc-navlink.active { color: #fff; }
+
+.vc-btn-primary {
+  background: #FF5A1F; color: #fff; border: none; border-radius: 10px;
+  padding: 10px 20px; font-size: 14px; font-weight: 700; cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 16px rgba(255,90,31,0.35); transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+  font-family: inherit;
+}
+.vc-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(255,90,31,0.5); }
+.vc-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.vc-btn-ghost {
+  background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 500; cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
+  transition: background 0.2s;
+}
+.vc-btn-ghost:hover { background: rgba(255,255,255,0.14); }
+
+.vc-btn-outline {
+  background: #fff; color: #0B1829; border: 1px solid #E5E7EB; border-radius: 10px;
+  padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px; font-family: inherit; transition: border-color 0.2s, color 0.2s;
+}
+.vc-btn-outline:hover:not(:disabled) { border-color: #FF5A1F; color: #FF5A1F; }
+.vc-btn-outline:disabled { color: #D1D5DB; cursor: not-allowed; }
+
+.vc-card {
+  background: #fff; border-radius: 18px; overflow: hidden; border: 1px solid #F0F2F5;
+  box-shadow: 0 2px 12px rgba(11,24,41,0.07); transition: transform 0.3s ease, box-shadow 0.3s ease;
+  color: inherit; text-decoration: none; display: block; position: relative;
+}
+.vc-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(11,24,41,0.14); }
+
+.vc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+
+.vc-input {
+  width: 100%; padding: 12px 14px; background: #fff; border: 1px solid #E5E7EB; border-radius: 10px;
+  font-size: 14px; color: #0B1829; outline: none; font-family: inherit; transition: border-color 0.2s;
+}
+.vc-input:focus { border-color: #FF5A1F; }
+
+.vc-panel { background: #fff; border: 1px solid #F0F2F5; border-radius: 18px; padding: 22px 24px; box-shadow: 0 2px 12px rgba(11,24,41,0.05); }
+
+@keyframes vc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.vc-skeleton { background: #E9EBEE; border-radius: 18px; animation: vc-pulse 1.5s ease-in-out infinite; }
+
+@media (max-width: 900px) {
+  .vc-hide-mobile { display: none !important; }
+  .vc-stack-mobile { flex-direction: column !important; align-items: stretch !important; }
+  .vc-two-col { grid-template-columns: 1fr !important; }
+  .vc-pad { padding-left: 20px !important; padding-right: 20px !important; }
+}

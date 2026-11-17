@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/Said2911/VeloCite/actions/workflows/ci.yml/badge.svg)](https://github.com/Said2911/VeloCite/actions/workflows/ci.yml)
 
+**🌐 Live demo: [velo-cite.vercel.app](https://velo-cite.vercel.app/)** — API: [velocite-api.onrender.com/docs](https://velocite-api.onrender.com/docs)
+
+> Free hosting: the API sleeps when idle, so the first request after a break can take up to a minute.
+
 VeloCite searches apartments and houses in all districts of Baku and in Sumgait,
 Ganja, Mingachevir, Lankaran, Shaki, Gabala and Guba, and tells you whether each
 one is a good deal. Every listing gets a **0–10 value score** from a Pandas
@@ -164,9 +168,18 @@ PYTHONPATH=build pytest tests/cpp    # after building the C++ module
 CI (GitHub Actions) runs Ruff + pytest, builds and tests the C++ engine, and lints
 and builds the frontend.
 
-## ☁️ Deployment notes
+## ☁️ Deployment
 
-- The database **must have PostGIS** (on Railway use a PostGIS image/template).
+The live demo runs on free tiers:
+
+| Part | Host | Config |
+|---|---|---|
+| Frontend | Vercel | Root directory `frontend`, env `NEXT_PUBLIC_API_URL` |
+| API | Render (Docker, Frankfurt) | [`render.yaml`](render.yaml) blueprint; set `DATABASE_URL`, `CORS_ORIGINS` |
+| Database | Neon (Postgres + PostGIS, Frankfurt) | the API creates the PostGIS extension and tables itself |
+
+Notes:
+- The database **must have PostGIS**.
 - `docker/api.Dockerfile` listens on `$PORT` when the platform provides it.
 - Build the frontend with `NEXT_PUBLIC_API_URL` pointing at the deployed API and add the
   frontend URL to `CORS_ORIGINS`.

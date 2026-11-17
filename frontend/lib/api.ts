@@ -168,6 +168,18 @@ export class ApiError extends Error {
   }
 }
 
+// Free hosting puts the API to sleep when idle; the first request then takes up to a
+// minute. Requests slower than SLOW_REQUEST_MS raise a "velocite:slow" window event
+// so the UI can explain the wait (see components/WakeNotice.tsx).
+const SLOW_REQUEST_MS = 4000;
+let slowRequests = 0;
+
+function emitSlow(delta: number) {
+  if (typeof window === "undefined") return;
+  slowRequests = Math.max(0, slowRequests + delta);
+  window.dispatchEvent(new CustomEvent("velocite:slow", { detail: slowRequests > 0 }));
+}
+
 async function request<T>(path: string, init: RequestInit = {}, auth = false): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
@@ -176,11 +188,19 @@ async function request<T>(path: string, init: RequestInit = {}, auth = false): P
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
+  let markedSlow = false;
+  const timer = typeof window !== "undefined"
+    ? window.setTimeout(() => { markedSlow = true; emitSlow(1); }, SLOW_REQUEST_MS)
+    : undefined;
+
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   } catch {
-    throw new ApiError(0, "Cannot reach the VeloCite API. Is the backend running?");
+    throw new ApiError(0, "Cannot reach the VeloCite API. If the site was idle, the server may still be waking up — try again in a minute.");
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer);
+    if (markedSlow) emitSlow(-1);
   }
 
   if (!response.ok) {

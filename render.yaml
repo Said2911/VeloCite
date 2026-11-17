@@ -1,0 +1,26 @@
+# Render Blueprint for the VeloCite API (free web service, Docker).
+# Render dashboard → New → Blueprint → pick this repository.
+# The database is external (Neon, PostgreSQL with PostGIS): paste its
+# connection string into DATABASE_URL when Render asks for it.
+services:
+  - type: web
+    name: velocite-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # asked for when the blueprint is created
+      - key: CORS_ORIGINS
+        sync: false          # e.g. https://velocite.vercel.app
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: REDIS_URL
+        value: ""            # no Redis on the free plan → in-memory cache
+      - key: DB_POOL_MAX
+        value: "5"

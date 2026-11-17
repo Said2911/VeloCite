@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from analytics.scoring import recompute_all_scores
 from backend.cache import create_cache
 from backend.config import settings
-from backend.db import run_migrations
+from backend.db import pool_options, run_migrations
 from backend.services.ranking import CPP_AVAILABLE
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -37,7 +37,8 @@ async def prepare_data(pool) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and clean up connections on startup/shutdown."""
-    db_pool = await asyncpg.create_pool(dsn=settings.DATABASE_URL, min_size=2, max_size=20)
+    dsn, options = pool_options(settings.DATABASE_URL)
+    db_pool = await asyncpg.create_pool(dsn=dsn, min_size=1, max_size=settings.DB_POOL_MAX, **options)
     cache = await create_cache(settings.REDIS_URL)
 
     app.state.db_pool = db_pool

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/velocite"
+    DB_POOL_MAX: int = 10
     MIGRATIONS_DIR: str = str(REPO_ROOT / "database" / "migrations")
 
     # Redis (optional — an in-memory cache is used if Redis is unreachable)
